@@ -1,8 +1,10 @@
 <div align="center">
 
-# 🎟️ Smart Queue Management System
+<img width="100%" src="https://capsule-render.vercel.app/api?type=waving&color=0:6C5CE7,100:00D2FF&height=220&section=header&text=Smart%20Queue%20Management%20System&fontSize=42&fontColor=ffffff&animation=fadeIn&fontAlignY=35&desc=Real-time%20%C2%B7%20Multi-tenant%20%C2%B7%20Role-based%20Queue%20%26%20Appointment%20Platform&descSize=18&descAlignY=55" alt="header"/>
 
-### A professional, full-stack, **multi-tenant** queue &amp; appointment platform — real-time, role-based, and built to scale.
+<img src="https://readme-typing-svg.demolab.com/?lines=%F0%9F%8E%9F%EF%B8%8F+Queues%2C+Counters+%26+Appointments+%E2%80%94+Live;%F0%9F%9B%A1%EF%B8%8F+Admin+%E2%86%92+Org+%E2%86%92+Staff+%E2%86%92+User;%E2%9A%A1+Powered+by+Socket.IO+%2B+MongoDB+%2B+React&font=Fira%20Code&center=true&width=650&height=45&color=6C5CE7&vCenter=true&size=22&pause=1800" alt="typing-svg" />
+
+<br/>
 
 ![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)
@@ -12,41 +14,34 @@
 ![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS_v4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
 ![JWT](https://img.shields.io/badge/JWT-Auth-black?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
 
-![Status](https://img.shields.io/badge/Backend-Stable-brightgreen?style=flat-square)
+![Status](https://img.shields.io/badge/Backend-Stable-brightgreen?style=flat-square&logo=checkmarx)
 ![Roles](https://img.shields.io/badge/Roles-Admin%20%7C%20Org%20%7C%20Staff%20%7C%20User-blueviolet?style=flat-square)
-![Realtime](https://img.shields.io/badge/Realtime-Socket.IO-orange?style=flat-square)
+![Realtime](https://img.shields.io/badge/Realtime-Socket.IO-orange?style=flat-square&logo=socket.io)
+![Multi--tenant](https://img.shields.io/badge/Architecture-Multi--tenant-informational?style=flat-square)
+![Made with Love](https://img.shields.io/badge/Made%20with-%E2%9D%A4-red?style=flat-square)
+![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
+
+<img src="https://skillicons.dev/icons?i=nodejs,express,react,mongodb,tailwind,socketio,javascript,vite&theme=dark" alt="skills"/>
 
 </div>
 
----
-
-```
-                 ┌────────────────────────────────────────────┐
-                 │   🛡️ Admin · 🏢 Organization · 🧑‍💼 Staff · 🙋 User   │
-                 └────────────────────┬─────────────────────────┘
-                                       │
-                              ⚛️ React Frontend
-                                       │
-                        🌐 REST API  +  🔌 Socket.IO
-                                       │
-                        🟢 Node.js / Express Backend
-                                       │
-                                  🍃 MongoDB
-```
-
----
+<img width="100%" src="https://capsule-render.vercel.app/api?type=rect&color=0:6C5CE7,100:00D2FF&height=4"/>
 
 ## 📑 Table of Contents
 
+<div align="center">
+
 | | | | |
-|---|---|---|---|
+|:---:|:---:|:---:|:---:|
 | 1️⃣ [Account & Access Model](#1️⃣-account--access-model) | 2️⃣ [Features](#2️⃣-features) | 3️⃣ [Architecture](#3️⃣-system-architecture) | 4️⃣ [Tech Stack](#4️⃣-technology-stack) |
 | 5️⃣ [Queue Flow](#5️⃣-queue-flow) | 6️⃣ [Appointment Flow](#6️⃣-appointment-flow) | 7️⃣ [Project Structure](#7️⃣-project-structure) | 8️⃣ [Env Variables](#8️⃣-environment-variables) |
 | 9️⃣ [API Overview](#9️⃣-api-overview) | 🔟 [Security](#🔟-authentication--security) | 🔌 [WebSocket Events](#-websocket-event-mappings) | 🚀 [Setup](#-local-development-setup) |
-| 🧪 [Tests](#-verification-tests) | 📦 [Deployment](#-deployment-instructions) | 📊 [Dev Status](#-development-status) | |
+| 🧪 [Tests](#-verification-tests) | 📦 [Deployment](#-deployment-instructions) | 📊 [Dev Status](#-development-status) | ⭐ [Support](#-support-this-project) |
 
----
+</div>
+
+<img width="100%" src="https://capsule-render.vercel.app/api?type=rect&color=0:00D2FF,100:6C5CE7&height=4"/>
 
 ## 1️⃣ Account & Access Model
 
@@ -67,6 +62,8 @@
           🙋  USER            (many — the ONLY self-service signup)
 ```
 
+<div align="center">
+
 | Role | 🔑 How the account is created | 👤 Managed by |
 |:---:|---|---|
 | 🛡️ **Admin** | Bootstrapped once at system setup — there is only ever **one**. | Self-managed |
@@ -74,22 +71,31 @@
 | 🧑‍💼 **Staff** | Created **by their Organization**, which issues credentials and assigns counters. | The owning Organization |
 | 🙋 **User** | 🌟 **The only public self-registration** — anyone can sign up. | The user |
 
+</div>
+
 🎛️ **Login** is one page with a **role selector**: `Admin ⏷ / Organization ⏷ / Staff ⏷ / User ⏷` — the right dashboard and permissions load automatically.
 
 ✅ **Uniqueness enforced at signup:**
 - 📧 Email — unique
 - 📱 Mobile number — unique
 
----
+<img width="100%" src="https://capsule-render.vercel.app/api?type=rect&color=0:6C5CE7,100:00D2FF&height=4"/>
 
 ## 2️⃣ Features
 
-### 🛡️ Admin Portal
+<details open>
+<summary>🛡️ <strong>Admin Portal</strong></summary>
+<br>
+
 - 🏗️ **Organization Onboarding** — registers tenants with real-time location capture and issues their credentials
 - 👀 **Read-Only Oversight** — views org details & tenant analytics, but never touches an org's services/queues/counters/staff
 - 🌍 **Root Console** — system-wide multi-tenant overview
+</details>
 
-### 🏢 Organization Portal
+<details open>
+<summary>🏢 <strong>Organization Portal</strong></summary>
+<br>
+
 - 🧑‍💼 **Staff Provisioning** — creates staff accounts & credentials
 - 🛠️ **Service Configuration** — create / **edit** / audit / remove services
 - 📋 **Queue Configuration** — map services → queues, set FIFO/PRIORITY policy, **edit** anytime
@@ -98,8 +104,12 @@
 - 📅 **Slot Generator** — build appointment calendars with capacity caps
 - ✅ **Booking Approvals** — confirm customer appointment slots
 - 📊 **Dashboard Analytics** — traffic, service time & status breakdowns
+</details>
 
-### 🧑‍💼 Staff Portal
+<details open>
+<summary>🧑‍💼 <strong>Staff Portal</strong></summary>
+<br>
+
 - 🎚️ **Desk Panel Controls** — toggle assigned counters online/offline
 - 🎫 **Token Operations**
   - 📢 **Call Next**
@@ -107,8 +117,12 @@
   - ✅ **Complete Service** → `COMPLETED`, desk freed
   - ⏭️ **Skip Token** → `SKIPPED`, desk freed
 - 👥 **Waitline Auditing** — live view of who's checked in & waiting
+</details>
 
-### 🙋 User Portal
+<details open>
+<summary>🙋 <strong>User Portal</strong></summary>
+<br>
+
 - 📝 **Self-Registration / Login** — the only open signup flow
 - 🔍 **Browse & Join Queues** — live org/service/queue listings
 - 🎟️ **Live Token Status** — `WAITING → CALLED → IN_SERVICE → COMPLETED`, live position & ETA
@@ -116,13 +130,18 @@
 - 📅 **Appointment Booking** — pick & book open slots
 - ✅ **Appointment Check-In** — auto-converts to an active token
 - ❌ **Token Cancellation** — leave anytime before being called
+</details>
 
-### 🌐 Cross-Cutting
+<details open>
+<summary>🌐 <strong>Cross-Cutting</strong></summary>
+<br>
+
 - 📄 **Pagination** everywhere — organizations, services, queues, counters, staff, appointments, tokens
 - ✏️ **Full edit support** — org details, services, queues, counters (nothing is create-only)
 - 🔒 **Tenant isolation** — an org (and its staff) only ever sees its own data
+</details>
 
----
+<img width="100%" src="https://capsule-render.vercel.app/api?type=rect&color=0:00D2FF,100:6C5CE7&height=4"/>
 
 ## 3️⃣ System Architecture
 
@@ -135,11 +154,14 @@
 ```
 [⚛️ React Client] <──────────── 🔌 Socket.IO (WebSockets) ────────────> [🟢 Express + Socket.IO Server]
 ```
+
 ⚡ When staff change a ticket's state, the backend broadcasts over queue-specific rooms — listening clients instantly recalculate wait lines, positions & ETAs.
 
----
+<img width="100%" src="https://capsule-render.vercel.app/api?type=rect&color=0:6C5CE7,100:00D2FF&height=4"/>
 
 ## 4️⃣ Technology Stack
+
+<div align="center">
 
 | Layer | 🧩 Technology | Purpose |
 |---|---|---|
@@ -156,7 +178,9 @@
 | 🔒 Password Security | bcryptjs | Hashing |
 | 📶 Real-time Server | Socket.IO | Room-based broadcasting |
 
----
+</div>
+
+<img width="100%" src="https://capsule-render.vercel.app/api?type=rect&color=0:00D2FF,100:6C5CE7&height=4"/>
 
 ## 5️⃣ Queue Flow
 
@@ -164,6 +188,7 @@
 ```
 [Join / Check-In] ──▶ 🟡 WAITING ──▶ 📢 CALLED ──▶ 🔵 IN_SERVICE ──▶ 🟢 COMPLETED
 ```
+
 | Status | Meaning |
 |:---:|---|
 | 🟡 `WAITING` | In line, eligible to be called |
@@ -177,24 +202,26 @@
 ```
 🟢 AVAILABLE ──▶ 🔵 BUSY ──▶ 🟢 AVAILABLE
 ```
+
 | Status | Meaning |
 |:---:|---|
 | 🟢 `AVAILABLE` | Online & ready — "Call Next" enabled |
 | 🔵 `BUSY` | Serving — Start / Complete / Skip enabled |
 | ⚫ `OFFLINE` | Closed, no operations |
 
----
+<img width="100%" src="https://capsule-render.vercel.app/api?type=rect&color=0:6C5CE7,100:00D2FF&height=4"/>
 
 ## 6️⃣ Appointment Flow
 
 ```
 [📅 Book Slot] ──▶ 🟡 BOOKED ──▶ 🟢 CONFIRMED ──▶ 🔵 CHECKED_IN (🎫 Token Created)
 ```
+
 1. **📅 Booking** — customer selects a slot → `BOOKED`
 2. **✅ Confirmation** — org approves → `CONFIRMED`
 3. **🚪 Check-In** — on the day → `CHECKED_IN`, auto-creates a `WAITING` token
 
----
+<img width="100%" src="https://capsule-render.vercel.app/api?type=rect&color=0:00D2FF,100:6C5CE7&height=4"/>
 
 ## 7️⃣ Project Structure
 
@@ -230,7 +257,7 @@ smart-queue/
 └── README.md
 ```
 
----
+<img width="100%" src="https://capsule-render.vercel.app/api?type=rect&color=0:6C5CE7,100:00D2FF&height=4"/>
 
 ## 8️⃣ Environment Variables
 
@@ -248,7 +275,7 @@ smart-queue/
 |---|---|---|
 | `VITE_API_URL` | 🌐 REST API root | `http://localhost:5000` |
 
----
+<img width="100%" src="https://capsule-render.vercel.app/api?type=rect&color=0:00D2FF,100:6C5CE7&height=4"/>
 
 ## 9️⃣ API Overview
 
@@ -266,7 +293,7 @@ smart-queue/
 
 📄 **Pagination** is live on `organizations`, `services`, `queues`, `counters`, `staff`, `appointments`, and `tokens`.
 
----
+<img width="100%" src="https://capsule-render.vercel.app/api?type=rect&color=0:6C5CE7,100:00D2FF&height=4"/>
 
 ## 🔟 Authentication & Security
 
@@ -278,7 +305,7 @@ smart-queue/
 6. 🏢 **Tenant boundaries** — `organizationAccessMiddleware.js` scopes orgs/staff to their own resources only
 7. ⛔ **Provisioning chain enforced** — self-registration as Org or Staff is rejected server-side
 
----
+<img width="100%" src="https://capsule-render.vercel.app/api?type=rect&color=0:00D2FF,100:6C5CE7&height=4"/>
 
 ## 🔌 WebSocket Event Mappings
 
@@ -290,7 +317,7 @@ smart-queue/
 | `TOKEN_CALLED` | Server → Queue Room | A ticket was called |
 | `YOUR_TOKEN_CALLED` | Server → User Room | Direct alert to the customer |
 
----
+<img width="100%" src="https://capsule-render.vercel.app/api?type=rect&color=0:6C5CE7,100:00D2FF&height=4"/>
 
 ## 🚀 Local Development Setup
 
@@ -312,7 +339,7 @@ cd ../backend
 node elevate_admin.js
 ```
 
----
+<img width="100%" src="https://capsule-render.vercel.app/api?type=rect&color=0:00D2FF,100:6C5CE7&height=4"/>
 
 ## 🧪 Verification Tests
 
@@ -330,7 +357,7 @@ cd backend
 node testSocket.js
 ```
 
----
+<img width="100%" src="https://capsule-render.vercel.app/api?type=rect&color=0:6C5CE7,100:00D2FF&height=4"/>
 
 ## 📦 Deployment Instructions
 
@@ -343,11 +370,27 @@ node testSocket.js
 - Set `PORT`, `MONGO_URI`, `JWT_SECRET` in host env
 - Confirm CORS allows the production frontend origin
 
----
+<img width="100%" src="https://capsule-render.vercel.app/api?type=rect&color=0:00D2FF,100:6C5CE7&height=4"/>
 
 ## 📊 Development Status
 
 > All backend contracts below are ✅ implemented & tested. Frontend alignment is next.
+
+<div align="center">
+
+![Phase 1](https://img.shields.io/badge/Phase%201%20Auth-Complete-brightgreen?style=for-the-badge)
+![Phase 2](https://img.shields.io/badge/Phase%202%20Orgs-Complete-brightgreen?style=for-the-badge)
+![Phase 3](https://img.shields.io/badge/Phase%203%20Staff-Complete-brightgreen?style=for-the-badge)
+![Phase 4](https://img.shields.io/badge/Phase%204%20Resources-Complete-brightgreen?style=for-the-badge)
+<br/>
+![Phase 5](https://img.shields.io/badge/Phase%205%20Queue%20Ops-Complete-brightgreen?style=for-the-badge)
+![Phase 6](https://img.shields.io/badge/Phase%206%20Realtime-Complete-brightgreen?style=for-the-badge)
+![Phase 7](https://img.shields.io/badge/Phase%207%20Appointments-Complete-brightgreen?style=for-the-badge)
+<br/>
+![Phase 8](https://img.shields.io/badge/Phase%208%20Pagination-Complete-brightgreen?style=for-the-badge)
+![Phase 9](https://img.shields.io/badge/Phase%209%20Security-Complete-brightgreen?style=for-the-badge)
+
+</div>
 
 <details>
 <summary>🔐 <strong>Phase 1 — Authentication Foundation</strong> ✅</summary><br>
@@ -408,3 +451,18 @@ Admin isolation · Org A/B isolation · Staff isolation · User token isolation 
 ### 🎯 Next Step: Frontend alignment against the now-stable backend contract set
 
 </div>
+
+<img width="100%" src="https://capsule-render.vercel.app/api?type=rect&color=0:6C5CE7,100:00D2FF&height=4"/>
+
+## ⭐ Support This Project
+
+<div align="center">
+
+If this project helped you, consider giving it a star — it genuinely helps! ✨
+
+[![GitHub Repo stars](https://img.shields.io/github/stars/Mithuna-spec/smart-queue-nodejs-project?style=social)](https://github.com/Mithuna-spec/smart-queue-nodejs-project/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/Mithuna-spec/smart-queue-nodejs-project?style=social)](https://github.com/Mithuna-spec/smart-queue-nodejs-project/network/members)
+
+</div>
+
+<img width="100%" src="https://capsule-render.vercel.app/api?type=waving&color=0:00D2FF,100:6C5CE7&height=150&section=footer&animation=fadeIn"/>
