@@ -1,7 +1,5 @@
 <div align="center">
 
-<img width="100%" src="https://capsule-render.vercel.app/api?type=waving&color=0:6C5CE7,100:00D2FF&height=220&section=header&text=Smart%20Queue%20Management%20System&fontSize=42&fontColor=ffffff&animation=fadeIn&fontAlignY=35&desc=Real-time%20%C2%B7%20Multi-tenant%20%C2%B7%20Role-based%20Queue%20%26%20Appointment%20Platform&descSize=18&descAlignY=55" alt="header"/>
-
 <img src="https://readme-typing-svg.demolab.com/?lines=%F0%9F%8E%9F%EF%B8%8F+Queues%2C+Counters+%26+Appointments+%E2%80%94+Live;%F0%9F%9B%A1%EF%B8%8F+Admin+%E2%86%92+Org+%E2%86%92+Staff+%E2%86%92+User;%E2%9A%A1+Powered+by+Socket.IO+%2B+MongoDB+%2B+React&font=Fira%20Code&center=true&width=650&height=45&color=6C5CE7&vCenter=true&size=22&pause=1800" alt="typing-svg" />
 
 <br/>
@@ -371,88 +369,6 @@ node testSocket.js
 - Confirm CORS allows the production frontend origin
 
 <img width="100%" src="https://capsule-render.vercel.app/api?type=rect&color=0:00D2FF,100:6C5CE7&height=4"/>
-
-## 📊 Development Status
-
-> All backend contracts below are ✅ implemented & tested. Frontend alignment is next.
-
-<div align="center">
-
-![Phase 1](https://img.shields.io/badge/Phase%201%20Auth-Complete-brightgreen?style=for-the-badge)
-![Phase 2](https://img.shields.io/badge/Phase%202%20Orgs-Complete-brightgreen?style=for-the-badge)
-![Phase 3](https://img.shields.io/badge/Phase%203%20Staff-Complete-brightgreen?style=for-the-badge)
-![Phase 4](https://img.shields.io/badge/Phase%204%20Resources-Complete-brightgreen?style=for-the-badge)
-<br/>
-![Phase 5](https://img.shields.io/badge/Phase%205%20Queue%20Ops-Complete-brightgreen?style=for-the-badge)
-![Phase 6](https://img.shields.io/badge/Phase%206%20Realtime-Complete-brightgreen?style=for-the-badge)
-![Phase 7](https://img.shields.io/badge/Phase%207%20Appointments-Complete-brightgreen?style=for-the-badge)
-<br/>
-![Phase 8](https://img.shields.io/badge/Phase%208%20Pagination-Complete-brightgreen?style=for-the-badge)
-![Phase 9](https://img.shields.io/badge/Phase%209%20Security-Complete-brightgreen?style=for-the-badge)
-
-</div>
-
-<details>
-<summary>🔐 <strong>Phase 1 — Authentication Foundation</strong> ✅</summary><br>
-
-User model · Password hashing · Unique email · Unique mobile · Role validation · Admin bootstrap · Public user registration · Role-aware login · JWT · `/auth/me`
-</details>
-
-<details>
-<summary>🏢 <strong>Phase 2 — Organization Lifecycle</strong> ✅</summary><br>
-
-Admin → Create Organization · Org account creation · Org profile · Org update · Org authorization · Org isolation · Location validation
-</details>
-
-<details>
-<summary>🧑‍💼 <strong>Phase 3 — Staff Lifecycle</strong> ✅</summary><br>
-
-Org → Create Staff · Staff account creation · OrganizationStaff membership · Staff credentials · Staff update/deactivation · Staff org isolation
-</details>
-
-<details>
-<summary>🛠️ <strong>Phase 4 — Organization Resources</strong> ✅</summary><br>
-
-Services (create/edit/paginate) · Queues (create/edit/paginate) · Counters (create/edit/assign/paginate)
-</details>
-
-<details>
-<summary>🎫 <strong>Phase 5 — Queue Operations</strong> ✅</summary><br>
-
-Join queue · Token generation · Token ownership · Token status · Call next · Start · Complete · Skip · Cancel
-</details>
-
-<details>
-<summary>⚡ <strong>Phase 6 — Real-Time</strong> ✅</summary><br>
-
-Socket auth · Org rooms · Queue rooms · Token events · User updates · Staff updates
-</details>
-
-<details>
-<summary>📅 <strong>Phase 7 — Appointments</strong> ✅</summary><br>
-
-Slots · Booking · Confirmation · Check-in · Completion · Cancellation
-</details>
-
-<details>
-<summary>📄 <strong>Phase 8 — Pagination + Analytics</strong> ✅</summary><br>
-
-Pagination across orgs, staff, services, queues, counters, appointments, tokens · Analytics validation
-</details>
-
-<details>
-<summary>🛡️ <strong>Phase 9 — Security Testing</strong> ✅</summary><br>
-
-Admin isolation · Org A/B isolation · Staff isolation · User token isolation · Invalid role login · Invalid JWT · Expired JWT · Unauthorized resource access
-</details>
-
-<div align="center">
-
-### 🎯 Next Step: Frontend alignment against the now-stable backend contract set
-
-</div>
-
-<img width="100%" src="https://capsule-render.vercel.app/api?type=rect&color=0:6C5CE7,100:00D2FF&height=4"/>
 
 ## ⭐ Support This Project
 
