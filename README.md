@@ -1,272 +1,410 @@
-# Smart Queue Management System
+<div align="center">
 
-A professional, full-stack queue management solution built to streamline customer traffic, automate slot bookings, optimize desk allocations, and monitor wait lines in real-time. Designed on a multi-tenant model, it supports concurrent customer interactions, staff panel controls, organization configuration consoles, and system-wide administrative oversight.
+# 🎟️ Smart Queue Management System
+
+### A professional, full-stack, **multi-tenant** queue &amp; appointment platform — real-time, role-based, and built to scale.
+
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white)
+![Express](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)
+![React](https://img.shields.io/badge/React_19-61DAFB?style=for-the-badge&logo=react&logoColor=black)
+![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
+![Socket.IO](https://img.shields.io/badge/Socket.IO-010101?style=for-the-badge&logo=socket.io&logoColor=white)
+![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS_v4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
+![JWT](https://img.shields.io/badge/JWT-Auth-black?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
+
+![Status](https://img.shields.io/badge/Backend-Stable-brightgreen?style=flat-square)
+![Roles](https://img.shields.io/badge/Roles-Admin%20%7C%20Org%20%7C%20Staff%20%7C%20User-blueviolet?style=flat-square)
+![Realtime](https://img.shields.io/badge/Realtime-Socket.IO-orange?style=flat-square)
+![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
+
+</div>
+
+---
 
 ```
-User / Staff / Organization / Admin
-                ↓
-          React Frontend
-                ↓
-       REST API + Socket.IO
-                ↓
-    Node.js / Express Backend
-                ↓
-             MongoDB
+                 ┌────────────────────────────────────────────┐
+                 │   🛡️ Admin · 🏢 Organization · 🧑‍💼 Staff · 🙋 User   │
+                 └────────────────────┬─────────────────────────┘
+                                       │
+                              ⚛️ React Frontend
+                                       │
+                        🌐 REST API  +  🔌 Socket.IO
+                                       │
+                        🟢 Node.js / Express Backend
+                                       │
+                                  🍃 MongoDB
 ```
 
 ---
 
-## 1. Features
+## 📑 Table of Contents
 
-### User Profile Roles
-* **Register / Login**: Secure profile registration and session token management.
-* **Browse & Join Queues**: Real-time listing of active organizations and services. Customers can register into queue lines directly.
-* **Live Token Status**: Visual ticket renders detailing current status (`WAITING`, `CALLED`, `IN_SERVICE`, `COMPLETED`), queue position, and estimated wait times.
-* **Real-time Synchronization**: Instant updates to wait lines and position shifts without page reloads (via Socket.IO).
-* **Appointment Booking**: Select available slots under services and submit bookings.
-* **Appointment Check-in**: Checked-in confirmed slots automatically transition into active queue tokens.
-* **Token Cancellation**: Exit queues at any time before being called.
-
-### Organization Owners
-* **Service Configurations**: Create, audit, and remove services with customizable average handling times and appointment toggles.
-* **Queue Properties**: Map services to queue entities and set policies (e.g., FIFO or PRIORITY).
-* **Staff Registries**: Register pre-existing users as organization staff members.
-* **Counter Assignments**: Create physical desk counters, toggle their states, and map active staff members to them.
-* **Slot Generator**: Generate appointment calendars for services with specific start/end times and capacity caps.
-* **Booking Approvals**: Accept and confirm customer appointment slots to prepare them for check-in.
-* **Dashboard Analytics**: Consolidated oversight of traffic volume, service times, and status distributions.
-
-### Staff Operators
-* **Desk Panel Controls**: Manage counter online/offline states.
-* **Token Operations**:
-  * **Call Next**: Call the next waiting user based on queue sorting rules.
-  * **Start Service**: Mark user ticket status as `IN_SERVICE`.
-  * **Complete Service**: Close the active session, resolving the token as `COMPLETED` and releasing the desk back to `AVAILABLE`.
-  * **Skip Token**: Skip un-represented users, updating ticket to `SKIPPED` and freeing the desk.
-* **Waitline Auditing**: Real-time lists of customers checked-in and waiting for the active counter's service.
-
-### System Administrators
-* **Root Console**: Multi-tenant overview.
-* **Organization Registrations**: Register new tenant organizations and assign MongoDB Owner User IDs.
-* **Global Configuration Auditing**: System-wide service, counter, staff, and queue directory structures.
-* **Tenant Analytics**: Select any registered organization to audit queue performance, token statuses, and handling pace.
+| | | | |
+|---|---|---|---|
+| 1️⃣ [Account & Access Model](#1️⃣-account--access-model) | 2️⃣ [Features](#2️⃣-features) | 3️⃣ [Architecture](#3️⃣-system-architecture) | 4️⃣ [Tech Stack](#4️⃣-technology-stack) |
+| 5️⃣ [Queue Flow](#5️⃣-queue-flow) | 6️⃣ [Appointment Flow](#6️⃣-appointment-flow) | 7️⃣ [Project Structure](#7️⃣-project-structure) | 8️⃣ [Env Variables](#8️⃣-environment-variables) |
+| 9️⃣ [API Overview](#9️⃣-api-overview) | 🔟 [Security](#🔟-authentication--security) | 🔌 [WebSocket Events](#-websocket-event-mappings) | 🚀 [Setup](#-local-development-setup) |
+| 🧪 [Tests](#-verification-tests) | 📦 [Deployment](#-deployment-instructions) | 📊 [Dev Status](#-development-status) | |
 
 ---
 
-## 2. System Architecture
+## 1️⃣ Account & Access Model
 
-### REST API Flow
-```
-[React Client] ── Axios (JWT Header) ──> [Express Router] ──> [Controllers] ──> [MongoDB (Mongoose)]
-```
-HTTP API endpoints process authentication, organization setup, counter configurations, and slot booking states.
+> 🔐 **Nobody self-registers into a privileged role.** Every account above `USER` is issued top-down by the tier above it.
 
-### WebSocket Flow
 ```
-[React Client] <────────────── Socket.IO (WebSockets) ──────────────> [Express Server (Socket.io)]
+        🛡️  ADMIN            (exactly 1 — bootstrapped at setup)
+          │
+          │  creates & issues credentials for
+          ▼
+     🏢  ORGANIZATION        (many)
+          │
+          │  creates & issues credentials for
+          ▼
+        🧑‍💼  STAFF            (many, scoped to one organization)
+
+
+          🙋  USER            (many — the ONLY self-service signup)
 ```
-Socket.IO is integrated to deliver low-latency real-time synchronization. When a staff operator changes ticket states (e.g. calls the next customer), the backend broadcasts status signals over queue-specific rooms. Waiting customer clients listen to these channels and immediately recalculate wait lines, queue positions, and estimated wait times.
+
+| Role | 🔑 How the account is created | 👤 Managed by |
+|:---:|---|---|
+| 🛡️ **Admin** | Bootstrapped once at system setup — there is only ever **one**. | Self-managed |
+| 🏢 **Organization** | Created **by the Admin**, including real-time captured location; platform issues login credentials. | Fully self-service once created — Admin does *not* touch daily ops |
+| 🧑‍💼 **Staff** | Created **by their Organization**, which issues credentials and assigns counters. | The owning Organization |
+| 🙋 **User** | 🌟 **The only public self-registration** — anyone can sign up. | The user |
+
+🎛️ **Login** is one page with a **role selector**: `Admin ⏷ / Organization ⏷ / Staff ⏷ / User ⏷` — the right dashboard and permissions load automatically.
+
+✅ **Uniqueness enforced at signup:**
+- 📧 Email — unique
+- 📱 Mobile number — unique
 
 ---
 
-## 3. Technology Stack
+## 2️⃣ Features
 
-| Layer | Technology | Purpose |
-| :--- | :--- | :--- |
-| **Frontend** | React (v19) | Reactive user interface architecture |
-| **Styling** | Tailwind CSS (v4) | Responsive, modern utility-first CSS |
-| **Routing** | React Router DOM (v7) | Declarative client-side route paths and guards |
-| **Data Fetching** | Axios | REST API service wrapper with interceptors |
-| **Charts** | Recharts | Dynamic analytics data plots |
-| **Real-time** | Socket.IO Client | Real-time WebSocket connection bindings |
-| **Icons** | React Icons | Vector asset library |
-| **Backend** | Node.js / Express.js | Core server framework and middleware stack |
-| **Database** | MongoDB / Mongoose | Scalable Document Database and Object Modeling |
-| **Authentication** | JSON Web Tokens (JWT) | Stateless role-based session tokens |
-| **Password Security** | Bcryptjs | Hashing password credentials |
-| **Real-time Server** | Socket.IO | Connection routing and room-based broadcasts |
+### 🛡️ Admin Portal
+- 🏗️ **Organization Onboarding** — registers tenants with real-time location capture and issues their credentials
+- 👀 **Read-Only Oversight** — views org details & tenant analytics, but never touches an org's services/queues/counters/staff
+- 🌍 **Root Console** — system-wide multi-tenant overview
 
----
+### 🏢 Organization Portal
+- 🧑‍💼 **Staff Provisioning** — creates staff accounts & credentials
+- 🛠️ **Service Configuration** — create / **edit** / audit / remove services
+- 📋 **Queue Configuration** — map services → queues, set FIFO/PRIORITY policy, **edit** anytime
+- 🖥️ **Counter Management** — create, **edit**, toggle online/offline, assign staff
+- ✏️ **Profile Editing** — update organization details post-registration
+- 📅 **Slot Generator** — build appointment calendars with capacity caps
+- ✅ **Booking Approvals** — confirm customer appointment slots
+- 📊 **Dashboard Analytics** — traffic, service time & status breakdowns
 
-## 4. User Roles
+### 🧑‍💼 Staff Portal
+- 🎚️ **Desk Panel Controls** — toggle assigned counters online/offline
+- 🎫 **Token Operations**
+  - 📢 **Call Next**
+  - ▶️ **Start Service** → `IN_SERVICE`
+  - ✅ **Complete Service** → `COMPLETED`, desk freed
+  - ⏭️ **Skip Token** → `SKIPPED`, desk freed
+- 👥 **Waitline Auditing** — live view of who's checked in & waiting
 
-* **`USER`**: Customers seeking service. Standard public registration defaults to this role.
-* **`STAFF`**: Desk operators serving wait lines. Associated with an organization via the `OrganizationStaff` schema, defining their status and roles.
-* **`ORGANIZATION`**: Business owners who configure services, counters, queues, and approve slots.
-* **`ADMIN`**: Root system administrators with absolute system-wide oversight and tenant organization creation rights.
+### 🙋 User Portal
+- 📝 **Self-Registration / Login** — the only open signup flow
+- 🔍 **Browse & Join Queues** — live org/service/queue listings
+- 🎟️ **Live Token Status** — `WAITING → CALLED → IN_SERVICE → COMPLETED`, live position & ETA
+- ⚡ **Real-Time Sync** — instant updates, zero reloads
+- 📅 **Appointment Booking** — pick & book open slots
+- ✅ **Appointment Check-In** — auto-converts to an active token
+- ❌ **Token Cancellation** — leave anytime before being called
 
----
-
-## 5. Queue Flow
-
-### Token Lifecycle
-```
-[Join Queue / Check-In] ──> WAITING ──> [Staff Calls] ──> CALLED ──> [Staff Starts] ──> IN_SERVICE ──> [Staff Completes] ──> COMPLETED
-```
-* **`WAITING`**: Token is in the queue line. Eligible to be called.
-* **`CALLED`**: Staff operator calls the token. The customer is alerted to go to the assigned counter.
-* **`IN_SERVICE`**: Customer has arrived at the counter and service starts.
-* **`COMPLETED`**: Service completes. The desk is freed.
-* **`SKIPPED`**: Customer does not show up. The token is skipped and desk is freed.
-* **`CANCELLED`**: Customer cancels their token manually from their dashboard before being called.
-
-### Counter Lifecycle
-```
-AVAILABLE ──> [Staff Calls User] ──> BUSY ──> [Staff Completes/Skips] ──> AVAILABLE
-```
-* **`AVAILABLE`**: The counter is online and ready. Staff can click "Call Next".
-* **`BUSY`**: The counter is actively serving a client. Operators can click "Start Service", "Complete", or "Skip".
-* **`OFFLINE`**: The counter is closed. No operations can occur.
+### 🌐 Cross-Cutting
+- 📄 **Pagination** everywhere — organizations, services, queues, counters, staff, appointments, tokens
+- ✏️ **Full edit support** — org details, services, queues, counters (nothing is create-only)
+- 🔒 **Tenant isolation** — an org (and its staff) only ever sees its own data
 
 ---
 
-## 6. Appointment Flow
+## 3️⃣ System Architecture
 
+**REST API Flow**
 ```
-[User Book Slot] ──> BOOKED ──> [Org Approves] ──> CONFIRMED ──> [User Check-In] ──> CHECKED_IN (Queue Token Created)
+[⚛️ React Client] ──Axios (JWT)──> [🌐 Express Router] ──> [🎮 Controllers] ──> [🍃 MongoDB]
 ```
-1. **Booking**: Customer selects an active slot. Initial state is `BOOKED`.
-2. **Confirmation**: Organization approves the slot, changing status to `CONFIRMED`.
-3. **Check-In**: Customer checks in on the day of the appointment. The slot transitions to `CHECKED_IN`, automatically creating a `WAITING` token in the service queue.
+
+**WebSocket Flow**
+```
+[⚛️ React Client] <──────────── 🔌 Socket.IO (WebSockets) ────────────> [🟢 Express + Socket.IO Server]
+```
+⚡ When staff change a ticket's state, the backend broadcasts over queue-specific rooms — listening clients instantly recalculate wait lines, positions & ETAs.
 
 ---
 
-## 7. Project Structure
+## 4️⃣ Technology Stack
+
+| Layer | 🧩 Technology | Purpose |
+|---|---|---|
+| 🎨 Frontend | React (v19) | Reactive UI architecture |
+| 💅 Styling | Tailwind CSS (v4) | Utility-first responsive styling |
+| 🧭 Routing | React Router DOM (v7) | Role-based route guards |
+| 📡 Data Fetching | Axios | REST client + interceptors |
+| 📈 Charts | Recharts | Analytics visualizations |
+| 🔌 Real-time | Socket.IO Client | WebSocket bindings |
+| 🎯 Icons | React Icons | Vector icon library |
+| 🟢 Backend | Node.js / Express.js | Server & middleware |
+| 🍃 Database | MongoDB / Mongoose | Document store & ODM |
+| 🔑 Auth | JSON Web Tokens | Stateless, role-aware sessions |
+| 🔒 Password Security | bcryptjs | Hashing |
+| 📶 Real-time Server | Socket.IO | Room-based broadcasting |
+
+---
+
+## 5️⃣ Queue Flow
+
+**🎫 Token Lifecycle**
+```
+[Join / Check-In] ──▶ 🟡 WAITING ──▶ 📢 CALLED ──▶ 🔵 IN_SERVICE ──▶ 🟢 COMPLETED
+```
+| Status | Meaning |
+|:---:|---|
+| 🟡 `WAITING` | In line, eligible to be called |
+| 📢 `CALLED` | Alerted to head to the counter |
+| 🔵 `IN_SERVICE` | Being served |
+| 🟢 `COMPLETED` | Done, desk freed |
+| ⚪ `SKIPPED` | No-show, desk freed |
+| 🔴 `CANCELLED` | Cancelled before being called |
+
+**🖥️ Counter Lifecycle**
+```
+🟢 AVAILABLE ──▶ 🔵 BUSY ──▶ 🟢 AVAILABLE
+```
+| Status | Meaning |
+|:---:|---|
+| 🟢 `AVAILABLE` | Online & ready — "Call Next" enabled |
+| 🔵 `BUSY` | Serving — Start / Complete / Skip enabled |
+| ⚫ `OFFLINE` | Closed, no operations |
+
+---
+
+## 6️⃣ Appointment Flow
+
+```
+[📅 Book Slot] ──▶ 🟡 BOOKED ──▶ 🟢 CONFIRMED ──▶ 🔵 CHECKED_IN (🎫 Token Created)
+```
+1. **📅 Booking** — customer selects a slot → `BOOKED`
+2. **✅ Confirmation** — org approves → `CONFIRMED`
+3. **🚪 Check-In** — on the day → `CHECKED_IN`, auto-creates a `WAITING` token
+
+---
+
+## 7️⃣ Project Structure
 
 ```
 smart-queue/
 ├── backend/
 │   ├── src/
-│   │   ├── config/         # Database connection configuration
-│   │   ├── controllers/    # API endpoint controller handlers
-│   │   ├── middleware/     # JWT Auth, Role check, and Tenant check
-│   │   ├── models/         # Mongoose Schemas
-│   │   ├── routes/         # Express API Route paths
-│   │   ├── services/       # Wait time & queue position calculations
-│   │   ├── socket/         # Socket.IO event registrations & helpers
-│   │   └── server.js       # App listener mount and connection initiation
-│   ├── .env                # Backend environment configuration
-│   └── package.json        # Backend NPM script config
+│   │   ├── config/         # 🔧 Database connection configuration
+│   │   ├── controllers/    # 🎮 API endpoint controller handlers
+│   │   ├── middleware/     # 🔒 JWT auth, role checks, tenant boundary checks
+│   │   ├── models/         # 🗂️ Mongoose schemas
+│   │   ├── routes/         # 🛣️ Express route definitions
+│   │   ├── services/       # 🧮 Wait-time & queue-position calculations
+│   │   ├── socket/         # 🔌 Socket.IO event registrations & helpers
+│   │   └── server.js       # 🚀 App entrypoint
+│   ├── .env
+│   └── package.json
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── api/            # Centralized API service wrappers
-│   │   ├── components/     # Reusable UI widgets
-│   │   ├── context/        # Auth & Socket state providers
-│   │   ├── hooks/          # Custom hooks (e.g. useOrg)
-│   │   ├── layouts/        # Layout shells (Sidebar, Navbar)
-│   │   ├── pages/          # Dashboards and configurations (role-divided)
-│   │   ├── routes/         # Protected and role-based route guards
-│   │   ├── App.jsx         # App root wrapper
-│   │   └── index.css       # Tailwind v4 import
-│   ├── .env                # Frontend environment configuration
-│   └── package.json        # Frontend NPM script config
+│   │   ├── api/            # 📡 Centralized API service wrappers
+│   │   ├── components/     # 🧱 Reusable UI widgets
+│   │   ├── context/        # 🌐 Auth & Socket state providers
+│   │   ├── hooks/          # 🪝 Custom hooks (e.g. useOrg)
+│   │   ├── layouts/        # 🖼️ Layout shells (Sidebar, Navbar)
+│   │   ├── pages/          # 📄 Role-divided dashboards & config screens
+│   │   ├── routes/         # 🛡️ Protected, role-based route guards
+│   │   ├── App.jsx
+│   │   └── index.css       # 💅 Tailwind v4 import
+│   ├── .env
+│   └── package.json
 │
 └── README.md
 ```
 
 ---
 
-## 8. Environment Variables
+## 8️⃣ Environment Variables
 
-### Backend (`backend/.env`)
-
-| Variable | Description | Example |
-| :--- | :--- | :--- |
-| `PORT` | Local express listener port | `5000` |
-| `MONGO_URI` | MongoDB connection URI string | `mongodb://127.0.0.1:27017/smart-queue` |
-| `JWT_SECRET` | Secret token string for signing JWTs | `your_secret_key` |
-
-### Frontend (`frontend/.env`)
+**Backend** (`backend/.env`)
 
 | Variable | Description | Example |
-| :--- | :--- | :--- |
-| `VITE_API_URL` | Root URL pointing to the REST API | `http://localhost:5000` |
+|---|---|---|
+| `PORT` | 🔌 Local Express port | `5000` |
+| `MONGO_URI` | 🍃 MongoDB connection URI | `mongodb://127.0.0.1:27017/smart-queue` |
+| `JWT_SECRET` | 🔑 JWT signing secret | `your_secret_key` |
+
+**Frontend** (`frontend/.env`)
+
+| Variable | Description | Example |
+|---|---|---|
+| `VITE_API_URL` | 🌐 REST API root | `http://localhost:5000` |
 
 ---
 
-## 9. API Overview
+## 9️⃣ API Overview
 
-### Route Groups
-* **`/api/auth`**: Users registration (`/register`), login (`/login`), and profile details (`/me`).
-* **`/api/organizations`**: Tenant registry, creation, and detail queries.
-* **`/api/services`**: Create, get, and delete service definitions.
-* **`/api/queues`**: Create queues, update policies (`/:queueId/policy`), join queues (`/:queueId/join`), call next (`/:queueId/next`), and fetch analytics (`/:queueId/analytics`).
-* **`/api/tokens`**: Status lookup (`/:id/status`), start service (`/:id/start`), complete (`/:id/complete`), skip (`/:id/skip`), and cancel (`/:id/cancel`).
-* **`/api/appointments`**: Bookings, confirmation approvals (`/:id/confirm`), and check-in (`/:id/check-in`).
-* **`/api/appointment-slots`**: Create slots and get available slots.
-* **`/api/counters`**: Create counters, assign staff (`/:counterId/staff`), and update status (`/:counterId/status`).
-* **`/api/organization-staff`**: Map pre-registered staff users to organizations.
+| Route group | 🎯 Purpose |
+|---|---|
+| `/api/auth` | 🙋 User registration, 🔑 role-aware login, `/me` |
+| `/api/organizations` | 🛡️ Admin-issued org creation, 📄 paginated registry, profile detail/update |
+| `/api/organization-staff` | 🏢 Org-issued staff creation & membership mapping |
+| `/api/services` | 🛠️ Create / edit / list (📄 paginated) / delete services |
+| `/api/queues` | 📋 Create/edit queues, `/policy`, `/join`, `/next`, `/analytics` |
+| `/api/counters` | 🖥️ Create/edit counters, `/staff`, `/status` |
+| `/api/tokens` | 🎫 `/status`, `/start`, `/complete`, `/skip`, `/cancel` |
+| `/api/appointment-slots` | 📅 Create & list available slots |
+| `/api/appointments` | ✅ Bookings, `/confirm`, `/check-in` |
 
----
-
-## 10. Authentication & Security
-
-1. **JSON Web Tokens**: Authenticated requests must append the JWT as a Bearer token:
-   `Authorization: Bearer <JWT>`
-2. **Password Cryptography**: Passwords are saved as bcryptjs hashes.
-3. **Role Checks**: Express middleware checks user permissions (`ADMIN`, `ORGANIZATION`, `STAFF`, `USER`) before routing.
-4. **Tenant Access Boundaries**: `organizationAccessMiddleware.js` verifies that organization owners and staff operators belong to the organization context of the requested resources (queues, tokens, counters).
+📄 **Pagination** is live on `organizations`, `services`, `queues`, `counters`, `staff`, `appointments`, and `tokens`.
 
 ---
 
-## 11. WebSocket Event Mappings
+## 🔟 Authentication & Security
 
-* **`joinQueue` (Emit)**: Client subscribes to updates on a specific queue room (`queue:<queueId>`).
-* **`joinUser` (Emit)**: Client subscribes to updates on a specific user room (`user:<userId>`).
-* **`QUEUE_UPDATED` (Broadcast)**: Sent when queue configurations, check-ins, or completions shift.
-* **`TOKEN_CALLED` (Broadcast)**: Sent to alert a queue room that a ticket number has been called.
-* **`YOUR_TOKEN_CALLED` (Broadcast)**: Direct notification sent to the customer user room.
+1. 🔑 **JWT** on every request — `Authorization: Bearer <JWT>`
+2. 🎛️ **Role-aware login** — explicit role selector, JWT scoped accordingly
+3. 🔒 **bcryptjs hashing** — passwords never stored in plaintext
+4. 🆔 **Unique fields** — email & mobile enforced unique at the DB level
+5. 🛡️ **Role checks** — middleware validates `ADMIN` / `ORGANIZATION` / `STAFF` / `USER` before any controller runs
+6. 🏢 **Tenant boundaries** — `organizationAccessMiddleware.js` scopes orgs/staff to their own resources only
+7. ⛔ **Provisioning chain enforced** — self-registration as Org or Staff is rejected server-side
 
 ---
 
-## 12. Local Development Setup
+## 🔌 WebSocket Event Mappings
 
-### Prerequisite
-Ensure MongoDB is running locally on:
-`mongodb://127.0.0.1:27017/smart-queue`
+| Event | Direction | Purpose |
+|---|:---:|---|
+| `joinQueue` | Client → Server | Subscribe to `queue:<queueId>` |
+| `joinUser` | Client → Server | Subscribe to `user:<userId>` |
+| `QUEUE_UPDATED` | Server → Room | Queue/check-in/completion changed |
+| `TOKEN_CALLED` | Server → Queue Room | A ticket was called |
+| `YOUR_TOKEN_CALLED` | Server → User Room | Direct alert to the customer |
 
-### Step 1: Start Backend Server
-```powershell
+---
+
+## 🚀 Local Development Setup
+
+**Prerequisite:** MongoDB running at `mongodb://127.0.0.1:27017/smart-queue`
+
+```bash
+# 1️⃣ Backend
 cd backend
 npm install
-npm run dev
-```
-The server will boot on `http://localhost:5000`.
+npm run dev          # → http://localhost:5000
 
-### Step 2: Start Frontend Server
-```powershell
+# 2️⃣ Frontend
 cd ../frontend
 npm install
-npm run dev
+npm run dev           # → http://localhost:5173
+
+# 3️⃣ Bootstrap the one-and-only Admin
+cd ../backend
+node elevate_admin.js
 ```
-The client dashboard will launch on `http://localhost:5173`.
 
 ---
 
-## 13. Verification Tests
-A complete backend validation suite is present in `backend/testSocket.js` and `backend/elevate_admin.js` equivalents. Additionally, `test_smart_queue.js` runs comprehensive lifecycle tests:
-* Hashing & JWT logins.
-* Role protections (ensuring staff members cannot intercept other counters).
-* Concurrent desk operations.
-* Appointment check-in transition checks.
+## 🧪 Verification Tests
 
-To run tests:
-```powershell
+Covered in `backend/testSocket.js`, `backend/elevate_admin.js`, and `test_smart_queue.js`:
+
+- ✅ Hashing & role-aware JWT logins
+- ✅ Full provisioning chain (Admin → Org → Staff → User)
+- ✅ Role protections (e.g. staff can't touch other counters)
+- ✅ Tenant isolation across orgs
+- ✅ Concurrent desk operations
+- ✅ Appointment → check-in → token transitions
+
+```bash
 cd backend
 node testSocket.js
 ```
 
 ---
 
-## 14. Deployment Instructions
+## 📦 Deployment Instructions
 
-### Frontend Build
-* **Command**: `npm run build`
-* **Output Folder**: `dist/`
-* Make sure `VITE_API_URL` points to your production backend URI.
+**Frontend**
+- `npm run build` → output in `dist/`
+- Point `VITE_API_URL` at your production backend
 
-### Backend Node.js
-* **Command**: `npm start`
-* Configure `PORT`, `MONGO_URI`, and `JWT_SECRET` in host env.
-* Confirm the backend's CORS settings allow the production frontend URL.
+**Backend**
+- `npm start`
+- Set `PORT`, `MONGO_URI`, `JWT_SECRET` in host env
+- Confirm CORS allows the production frontend origin
+
+---
+
+## 📊 Development Status
+
+> All backend contracts below are ✅ implemented & tested. Frontend alignment is next.
+
+<details>
+<summary>🔐 <strong>Phase 1 — Authentication Foundation</strong> ✅</summary><br>
+
+User model · Password hashing · Unique email · Unique mobile · Role validation · Admin bootstrap · Public user registration · Role-aware login · JWT · `/auth/me`
+</details>
+
+<details>
+<summary>🏢 <strong>Phase 2 — Organization Lifecycle</strong> ✅</summary><br>
+
+Admin → Create Organization · Org account creation · Org profile · Org update · Org authorization · Org isolation · Location validation
+</details>
+
+<details>
+<summary>🧑‍💼 <strong>Phase 3 — Staff Lifecycle</strong> ✅</summary><br>
+
+Org → Create Staff · Staff account creation · OrganizationStaff membership · Staff credentials · Staff update/deactivation · Staff org isolation
+</details>
+
+<details>
+<summary>🛠️ <strong>Phase 4 — Organization Resources</strong> ✅</summary><br>
+
+Services (create/edit/paginate) · Queues (create/edit/paginate) · Counters (create/edit/assign/paginate)
+</details>
+
+<details>
+<summary>🎫 <strong>Phase 5 — Queue Operations</strong> ✅</summary><br>
+
+Join queue · Token generation · Token ownership · Token status · Call next · Start · Complete · Skip · Cancel
+</details>
+
+<details>
+<summary>⚡ <strong>Phase 6 — Real-Time</strong> ✅</summary><br>
+
+Socket auth · Org rooms · Queue rooms · Token events · User updates · Staff updates
+</details>
+
+<details>
+<summary>📅 <strong>Phase 7 — Appointments</strong> ✅</summary><br>
+
+Slots · Booking · Confirmation · Check-in · Completion · Cancellation
+</details>
+
+<details>
+<summary>📄 <strong>Phase 8 — Pagination + Analytics</strong> ✅</summary><br>
+
+Pagination across orgs, staff, services, queues, counters, appointments, tokens · Analytics validation
+</details>
+
+<details>
+<summary>🛡️ <strong>Phase 9 — Security Testing</strong> ✅</summary><br>
+
+Admin isolation · Org A/B isolation · Staff isolation · User token isolation · Invalid role login · Invalid JWT · Expired JWT · Unauthorized resource access
+</details>
+
+<div align="center">
+
+### 🎯 Next Step: Frontend alignment against the now-stable backend contract set
+
+</div>
