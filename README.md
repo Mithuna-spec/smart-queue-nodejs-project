@@ -150,7 +150,9 @@
 
 **WebSocket Flow**
 ```
-[⚛️ React Client] <──────────── 🔌 Socket.IO (WebSockets) ────────────> [🟢 Express + Socket.IO Server]
+[⚛️ React Client]
+        ⇅  🔌 Socket.IO (WebSockets)
+[🟢 Express + Socket.IO Server]
 ```
 
 ⚡ When staff change a ticket's state, the backend broadcasts over queue-specific rooms — listening clients instantly recalculate wait lines, positions & ETAs.
