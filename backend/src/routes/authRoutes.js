@@ -1,39 +1,24 @@
 const express = require("express");
+
 const {
     register,
     login,
     getMe
 } = require("../controllers/authController");
 
-const authMiddleware = require("../middleware/authMiddleware");
-const roleMiddleware = require("../middleware/roleMiddleware");
+const authMiddleware =
+    require("../middleware/authMiddleware");
 
 const router = express.Router();
 
 router.post("/register", register);
+
 router.post("/login", login);
 
-router.get("/me", authMiddleware, getMe);
 router.get(
-    "/admin-test",
+    "/me",
     authMiddleware,
-    roleMiddleware("ADMIN"),
-    (req, res) => {
-        res.json({
-            message: "Welcome Admin"
-        });
-    }
-);
-
-router.get(
-    "/staff-test",
-    authMiddleware,
-    roleMiddleware("STAFF", "ADMIN"),
-    (req, res) => {
-        res.json({
-            message: "Welcome Staff"
-        });
-    }
+    getMe
 );
 
 module.exports = router;

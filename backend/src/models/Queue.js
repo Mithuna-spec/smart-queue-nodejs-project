@@ -5,13 +5,15 @@ const queueSchema = new mongoose.Schema(
         organizationId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Organization",
-            required: true
+            required: true,
+            index: true
         },
 
         serviceId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Service",
-            required: true
+            required: true,
+            index: true
         },
 
         name: {
@@ -57,6 +59,17 @@ const queueSchema = new mongoose.Schema(
     },
     {
         timestamps: true
+    }
+);
+
+queueSchema.index(
+    {
+        organizationId: 1,
+        serviceId: 1,
+        name: 1
+    },
+    {
+        unique: true
     }
 );
 

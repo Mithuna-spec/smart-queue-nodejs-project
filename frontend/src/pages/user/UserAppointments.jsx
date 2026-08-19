@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getOrganizations } from "../../api/organizationApi";
-import { getServicesByOrganization } from "../../api/serviceApi";
+import { getAvailableOrganizations } from "../../api/organizationApi";
+import { getAvailableServices } from "../../api/serviceApi";
 import { getAvailableSlots } from "../../api/appointmentSlotApi";
 import { createAppointment, getMyAppointments, cancelAppointment, checkInAppointment } from "../../api/appointmentApi";
 import Button from "../../components/Button";
@@ -13,6 +13,7 @@ import ErrorMessage from "../../components/ErrorMessage";
 import EmptyState from "../../components/EmptyState";
 import StatusBadge from "../../components/StatusBadge";
 import Table from "../../components/Table";
+import Pagination from "../../components/Pagination";
 import { FiClock, FiCalendar, FiPlus } from "react-icons/fi";
 
 const UserAppointments = () => {
@@ -28,8 +29,11 @@ const UserAppointments = () => {
     const [selectedSlot, setSelectedSlot] = useState("");
     const [notes, setNotes] = useState("");
     
-    // Lists
+    // Lists and Pagination
     const [appointments, setAppointments] = useState([]);
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalRecords, setTotalRecords] = useState(0);
     
     const [loading, setLoading] = useState(false);
     const [listLoading, setListLoading] = useState(false);
@@ -42,23 +46,26 @@ const UserAppointments = () => {
         const init = async () => {
             setListLoading(true);
             try {
-                const orgData = await getOrganizations();
+                const orgData = await getAvailableOrganizations();
                 setOrganizations(orgData.organizations || []);
-                await fetchMyAppointments();
+                await fetchMyAppointments(page);
             } catch (err) {
                 console.error(err);
-                setError("Failed to fetch initial page configurations.");
+                setError("Failed to fetch active organization configurations.");
             } finally {
                 setListLoading(false);
             }
         };
         init();
-    }, []);
+    }, [page]);
 
-    const fetchMyAppointments = async () => {
+    const fetchMyAppointments = async (targetPage) => {
         try {
-            const data = await getMyAppointments();
+            const data = await getMyAppointments(targetPage, 5);
             setAppointments(data.appointments || []);
+            setPage(data.pagination?.page || 1);
+            setTotalPages(data.pagination?.totalPages || 1);
+            setTotalRecords(data.pagination?.total || 0);
         } catch (err) {
             console.error("Failed to load appointments:", err);
         }
@@ -73,7 +80,7 @@ const UserAppointments = () => {
         }
         const fetchServices = async () => {
             try {
-                const data = await getServicesByOrganization(selectedOrg);
+                const data = await getAvailableServices(selectedOrg);
                 setServices(data.services || []);
                 setSelectedService("");
                 setSlots([]);
@@ -124,7 +131,7 @@ const UserAppointments = () => {
             // Refresh slots and appointments list
             const slotRes = await getAvailableSlots(selectedService, selectedDate);
             setSlots(slotRes.slots || []);
-            await fetchMyAppointments();
+            await fetchMyAppointments(1);
         } catch (err) {
             console.error(err);
             setError(err.response?.data?.message || "Failed to book appointment.");
@@ -139,7 +146,7 @@ const UserAppointments = () => {
         try {
             await cancelAppointment(id);
             setSuccess("Appointment cancelled successfully.");
-            await fetchMyAppointments();
+            await fetchMyAppointments(page);
         } catch (err) {
             console.error(err);
             setError(err.response?.data?.message || "Failed to cancel appointment.");
@@ -150,11 +157,11 @@ const UserAppointments = () => {
         setError("");
         try {
             const data = await checkInAppointment(id);
-            setSuccess(`Checked in! Ticket Q${data.token.tokenNumber} created.`);
+            setSuccess(`Checked in! Ticket Q${String(data.token.tokenNumber).padStart(3, "0")} created.`);
             localStorage.setItem("activeTokenId", data.token.id || data.token._id);
             // Redirect to User Dashboard to view live token card
             setTimeout(() => {
-                navigate("/dashboard");
+                navigate("/user/my-queue");
             }, 1500);
         } catch (err) {
             console.error(err);
@@ -176,7 +183,7 @@ const UserAppointments = () => {
 
             {error && <ErrorMessage message={error} />}
             {success && (
-                <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-4 rounded-lg text-xs font-semibold select-none">
+                <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-4 rounded-lg text-xs font-semibold select-none text-center">
                     {success}
                 </div>
             )}
@@ -262,58 +269,68 @@ const UserAppointments = () => {
                         My Bookings
                     </h2>
 
-                    <Table 
-                        headers={["Service", "Date / Time", "Status", "Actions"]} 
-                        loading={listLoading}
-                        emptyMessage="You have no appointments booked."
-                    >
-                        {appointments.map((appt) => {
-                            const dateStr = appt.appointmentSlotId?.date 
-                                ? new Date(appt.appointmentSlotId.date).toLocaleDateString()
-                                : "-";
-                            const timeStr = appt.appointmentSlotId 
-                                ? `${appt.appointmentSlotId.startTime} - ${appt.appointmentSlotId.endTime}`
-                                : "-";
+                    <div className="space-y-4">
+                        <Table 
+                            headers={["Service", "Date / Time", "Status", "Actions"]} 
+                            loading={listLoading}
+                            emptyMessage="You have no appointments booked."
+                        >
+                            {appointments.map((appt) => {
+                                const dateStr = appt.appointmentSlotId?.date 
+                                    ? new Date(appt.appointmentSlotId.date).toLocaleDateString()
+                                    : "-";
+                                const timeStr = appt.appointmentSlotId 
+                                    ? `${appt.appointmentSlotId.startTime} - ${appt.appointmentSlotId.endTime}`
+                                    : "-";
 
-                            return (
-                                <tr key={appt._id} className="border-b border-[#35363B] text-sm text-[#F5F5F5] hover:bg-[#202126]/30">
-                                    <td className="px-6 py-4 font-semibold">{appt.serviceId?.name || "Service"}</td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex flex-col">
-                                            <span className="font-medium">{dateStr}</span>
-                                            <span className="text-xs text-[#707176]">{timeStr}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <StatusBadge status={appt.status} />
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center space-x-3">
-                                            {appt.status === "CONFIRMED" && (
-                                                <Button 
-                                                    variant="secondary" 
-                                                    size="sm" 
-                                                    onClick={() => handleCheckIn(appt._id)}
-                                                >
-                                                    Check In
-                                                </Button>
-                                            )}
-                                            {["BOOKED", "CONFIRMED"].includes(appt.status) && (
-                                                <Button 
-                                                    variant="outline" 
-                                                    size="sm" 
-                                                    onClick={() => handleCancel(appt._id)}
-                                                    className="border-red-500/10 hover:bg-[#BF1F1B]/10 hover:text-[#BF1F1B]"
-                                                >
-                                                    Cancel
-                                                </Button>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </Table>
+                                return (
+                                    <tr key={appt._id} className="border-b border-[#35363B] text-sm text-[#F5F5F5] hover:bg-[#202126]/30">
+                                        <td className="px-6 py-4 font-semibold">{appt.serviceId?.name || "Service"}</td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col">
+                                                <span className="font-medium">{dateStr}</span>
+                                                <span className="text-xs text-[#707176]">{timeStr}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <StatusBadge status={appt.status} />
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center space-x-3">
+                                                {appt.status === "CONFIRMED" && (
+                                                    <Button 
+                                                        variant="secondary" 
+                                                        size="sm" 
+                                                        onClick={() => handleCheckIn(appt._id)}
+                                                    >
+                                                        Check In
+                                                    </Button>
+                                                )}
+                                                {["BOOKED", "CONFIRMED"].includes(appt.status) && (
+                                                    <Button 
+                                                        variant="outline" 
+                                                        size="sm" 
+                                                        onClick={() => handleCancel(appt._id)}
+                                                        className="border-red-500/10 hover:bg-[#BF1F1B]/10 hover:text-[#BF1F1B]"
+                                                    >
+                                                        Cancel
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </Table>
+
+                        <Pagination 
+                            currentPage={page}
+                            totalPages={totalPages}
+                            totalRecords={totalRecords}
+                            onPageChange={(p) => setPage(p)}
+                            limit={5}
+                        />
+                    </div>
                 </div>
             </div>
         </div>

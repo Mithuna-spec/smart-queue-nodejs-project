@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { useOrg } from "../../hooks/useOrg";
-import { getCountersByOrganization } from "../../api/counterApi";
-import { getQueuesByOrganization, getQueueAnalytics } from "../../api/queueApi";
+import { getAssignedCounter } from "../../api/counterApi";
+import { getAssignedQueue } from "../../api/queueApi";
 import { getOrganizationAppointments } from "../../api/appointmentApi";
 import Loader from "../../components/Loader";
 import ErrorMessage from "../../components/ErrorMessage";
@@ -13,70 +12,70 @@ import { FiUsers, FiClock, FiActivity } from "react-icons/fi";
 
 const StaffQueue = () => {
     const { user } = useAuth();
-    const { orgId, orgLoading, orgError } = useOrg();
     
     const [counter, setCounter] = useState(null);
     const [queue, setQueue] = useState(null);
     const [analytics, setAnalytics] = useState(null);
     const [appointments, setAppointments] = useState([]);
     
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
     useEffect(() => {
-        if (orgId) {
-            loadQueueLines();
-        }
-    }, [orgId]);
+        loadQueueLines();
+    }, []);
 
     const loadQueueLines = async () => {
         setLoading(true);
         setError("");
         try {
-            const [countersRes, queuesRes, apptsRes] = await Promise.all([
-                getCountersByOrganization(orgId),
-                getQueuesByOrganization(orgId),
-                getOrganizationAppointments(orgId)
-            ]);
+            const data = await getAssignedCounter();
+            if (data.counter) {
+                setCounter(data.counter);
+                setQueue(data.queue);
+                
+                const orgId = data.counter.organizationId?._id || data.counter.organizationId;
+                
+                // Concurrent fetch for assigned queue metrics & appointments
+                const fetches = [];
+                if (data.queue) {
+                    fetches.push(getAssignedQueue());
+                } else {
+                    fetches.push(Promise.resolve(null));
+                }
+                fetches.push(getOrganizationAppointments(orgId, 1, 100));
 
-            const counters = countersRes.counters || [];
-            const matchedCounter = counters.find(
-                c => c.assignedStaff === user._id || c.assignedStaff?._id === user._id || c.assignedStaff === user.id || c.assignedStaff?._id === user.id
-            );
-            
-            if (matchedCounter) {
-                setCounter(matchedCounter);
-                
-                const queues = queuesRes.queues || [];
-                const matchedQueue = queues.find(
-                    q => q.serviceId === matchedCounter.serviceId || q.serviceId?._id === matchedCounter.serviceId
-                );
-                
-                if (matchedQueue) {
-                    setQueue(matchedQueue);
-                    // Fetch queue stats
-                    const analRes = await getQueueAnalytics(matchedQueue._id);
-                    setAnalytics(analRes.analytics);
+                const [analRes, apptsRes] = await Promise.all(fetches);
+
+                if (analRes) {
+                    setAnalytics(analRes.statistics);
                 }
 
-                // Filter appointments of this organization that belong to this counter's service
-                // and are in CHECKED_IN or CONFIRMED state (active wait line)
-                const activeAppts = (apptsRes.appointments || []).filter(
-                    appt => (appt.serviceId?._id === matchedCounter.serviceId || appt.serviceId === matchedCounter.serviceId) &&
-                            ["CONFIRMED", "CHECKED_IN"].includes(appt.status)
-                );
-                setAppointments(activeAppts);
+                if (apptsRes) {
+                    // Filter appointments of this organization that belong to this counter's service
+                    // and are in CHECKED_IN or CONFIRMED state (active wait line)
+                    const activeAppts = (apptsRes.appointments || []).filter(
+                        appt => (appt.serviceId?._id === data.counter.serviceId?._id || appt.serviceId === data.counter.serviceId?._id) &&
+                                ["CONFIRMED", "CHECKED_IN"].includes(appt.status)
+                    );
+                    setAppointments(activeAppts);
+                }
             }
         } catch (err) {
             console.error(err);
-            setError("Failed to fetch queue wait lines.");
+            if (err.response?.status === 404) {
+                setCounter(null);
+                setQueue(null);
+            } else {
+                setError(err.response?.data?.message || "Failed to fetch queue wait lines.");
+            }
         } finally {
             setLoading(false);
         }
     };
 
-    if (orgLoading || loading) return <Loader message="Fetching queue wait lines..." />;
-    if (orgError || error) return <ErrorMessage message={orgError || error} />;
+    if (loading) return <Loader message="Fetching queue wait lines..." />;
+    if (error) return <ErrorMessage message={error} />;
 
     if (!counter || !queue) {
         return (
@@ -103,19 +102,19 @@ const StaffQueue = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <StatCard
                         title="Waiting in Line"
-                        value={analytics.waiting}
+                        value={analytics.waiting || 0}
                         description="Customers with WAITING status"
                         icon={<FiUsers className="text-[#ED9663]" />}
                     />
                     <StatCard
                         title="Called Desk"
-                        value={analytics.called}
+                        value={analytics.called || 0}
                         description="Active called tokens"
                         icon={<FiActivity className="text-[#DC423E]" />}
                     />
                     <StatCard
                         title="Avg Wait Time"
-                        value={`${analytics.averageWaitingTime} min`}
+                        value={`${analytics.averageWaitingTime || 0} min`}
                         description="Average wait pace"
                         icon={<FiClock className="text-[#EFB477]" />}
                     />

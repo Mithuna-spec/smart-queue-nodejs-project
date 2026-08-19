@@ -11,6 +11,7 @@ import Select from "../../components/Select";
 import StatusBadge from "../../components/StatusBadge";
 import Loader from "../../components/Loader";
 import ErrorMessage from "../../components/ErrorMessage";
+import Pagination from "../../components/Pagination";
 import { FiPlus, FiCalendar, FiCheck } from "react-icons/fi";
 
 const OrgAppointments = () => {
@@ -20,6 +21,11 @@ const OrgAppointments = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
+
+    // Pagination state
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalRecords, setTotalRecords] = useState(0);
 
     // Create Slot modal state
     const [slotOpen, setSlotOpen] = useState(false);
@@ -32,19 +38,23 @@ const OrgAppointments = () => {
 
     useEffect(() => {
         if (orgId) {
-            fetchAppointmentsAndServices();
+            fetchAppointmentsAndServices(page);
         }
-    }, [orgId]);
+    }, [orgId, page]);
 
-    const fetchAppointmentsAndServices = async () => {
+    const fetchAppointmentsAndServices = async (targetPage) => {
         setLoading(true);
+        setError("");
         try {
             const [apptRes, servicesRes] = await Promise.all([
-                getOrganizationAppointments(orgId),
-                getServicesByOrganization(orgId)
+                getOrganizationAppointments(orgId, targetPage, 5),
+                getServicesByOrganization(orgId, 1, 100) // fetch services list without pagination for selector
             ]);
             setAppointments(apptRes.appointments || []);
             setServices(servicesRes.services || []);
+            setPage(apptRes.pagination?.page || 1);
+            setTotalPages(apptRes.pagination?.totalPages || 1);
+            setTotalRecords(apptRes.pagination?.total || 0);
         } catch (err) {
             console.error(err);
             setError("Failed to fetch appointments list.");
@@ -76,6 +86,7 @@ const OrgAppointments = () => {
             setStartTime("09:00");
             setEndTime("09:30");
             setCapacity(5);
+            await fetchAppointmentsAndServices(page);
         } catch (err) {
             console.error(err);
             setError(err.response?.data?.message || "Failed to create slots.");
@@ -86,10 +97,11 @@ const OrgAppointments = () => {
 
     const handleConfirm = async (apptId) => {
         setError("");
+        setSuccess("");
         try {
             await confirmAppointment(apptId);
             setSuccess("Appointment confirmed successfully.");
-            await fetchAppointmentsAndServices();
+            await fetchAppointmentsAndServices(page);
         } catch (err) {
             console.error(err);
             setError(err.response?.data?.message || "Failed to confirm appointment.");
@@ -98,10 +110,11 @@ const OrgAppointments = () => {
 
     const handleComplete = async (apptId) => {
         setError("");
+        setSuccess("");
         try {
             await completeAppointment(apptId);
             setSuccess("Appointment marked completed.");
-            await fetchAppointmentsAndServices();
+            await fetchAppointmentsAndServices(page);
         } catch (err) {
             console.error(err);
             setError(err.response?.data?.message || "Failed to complete appointment.");
@@ -126,72 +139,82 @@ const OrgAppointments = () => {
 
             {error && <ErrorMessage message={error} />}
             {success && (
-                <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3 rounded-lg text-xs font-semibold select-none">
+                <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3 rounded-lg text-xs font-semibold select-none text-center">
                     {success}
                 </div>
             )}
 
-            <Table 
-                headers={["Customer", "Service", "Date / Time", "Status", "Actions"]} 
-                loading={loading}
-                emptyMessage="No appointments booked yet."
-            >
-                {appointments.map((appt) => {
-                    const u = appt.userId || {};
-                    const dateStr = appt.appointmentSlotId?.date 
-                        ? new Date(appt.appointmentSlotId.date).toLocaleDateString()
-                        : "-";
-                    const timeStr = appt.appointmentSlotId 
-                        ? `${appt.appointmentSlotId.startTime} - ${appt.appointmentSlotId.endTime}`
-                        : "-";
+            <div className="space-y-4">
+                <Table 
+                    headers={["Customer", "Service", "Date / Time", "Status", "Actions"]} 
+                    loading={loading}
+                    emptyMessage="No appointments booked yet."
+                >
+                    {appointments.map((appt) => {
+                        const u = appt.userId || {};
+                        const dateStr = appt.appointmentSlotId?.date 
+                            ? new Date(appt.appointmentSlotId.date).toLocaleDateString()
+                            : "-";
+                        const timeStr = appt.appointmentSlotId 
+                            ? `${appt.appointmentSlotId.startTime} - ${appt.appointmentSlotId.endTime}`
+                            : "-";
 
-                    return (
-                        <tr key={appt._id} className="border-b border-[#35363B] text-sm text-[#F5F5F5] hover:bg-[#202126]/30">
-                            <td className="px-6 py-4">
-                                <div className="flex flex-col">
-                                    <span className="font-bold">{u.name || "N/A"}</span>
-                                    <span className="text-xs text-[#707176]">{u.email || "-"}</span>
-                                </div>
-                            </td>
-                            <td className="px-6 py-4 font-semibold text-[#A8A8A8]">
-                                {appt.serviceId?.name || "Service"}
-                            </td>
-                            <td className="px-6 py-4">
-                                <div className="flex flex-col">
-                                    <span className="font-medium">{dateStr}</span>
-                                    <span className="text-xs text-[#707176]">{timeStr}</span>
-                                </div>
-                            </td>
-                            <td className="px-6 py-4">
-                                <StatusBadge status={appt.status} />
-                            </td>
-                            <td className="px-6 py-4">
-                                <div className="flex items-center space-x-3">
-                                    {appt.status === "BOOKED" && (
-                                        <Button 
-                                            variant="secondary" 
-                                            size="sm" 
-                                            onClick={() => handleConfirm(appt._id)}
-                                        >
-                                            <FiCheck className="mr-1" /> Confirm
-                                        </Button>
-                                    )}
-                                    {appt.status === "CHECKED_IN" && (
-                                        <Button 
-                                            variant="outline" 
-                                            size="sm" 
-                                            onClick={() => handleComplete(appt._id)}
-                                            className="border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/10"
-                                        >
-                                            Complete
-                                        </Button>
-                                    )}
-                                </div>
-                            </td>
-                        </tr>
-                    );
-                })}
-            </Table>
+                        return (
+                            <tr key={appt._id} className="border-b border-[#35363B] text-sm text-[#F5F5F5] hover:bg-[#202126]/30">
+                                <td className="px-6 py-4">
+                                    <div className="flex flex-col">
+                                        <span className="font-bold">{u.name || "N/A"}</span>
+                                        <span className="text-xs text-[#707176]">{u.email || "-"}</span>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4 font-semibold text-[#A8A8A8]">
+                                    {appt.serviceId?.name || "Service"}
+                                </td>
+                                <td className="px-6 py-4">
+                                    <div className="flex flex-col">
+                                        <span className="font-medium">{dateStr}</span>
+                                        <span className="text-xs text-[#707176]">{timeStr}</span>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                    <StatusBadge status={appt.status} />
+                                </td>
+                                <td className="px-6 py-4">
+                                    <div className="flex items-center space-x-3">
+                                        {appt.status === "BOOKED" && (
+                                            <Button 
+                                                variant="secondary" 
+                                                size="sm" 
+                                                onClick={() => handleConfirm(appt._id)}
+                                            >
+                                                <FiCheck className="mr-1" /> Confirm
+                                            </Button>
+                                        )}
+                                        {appt.status === "CHECKED_IN" && (
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                onClick={() => handleComplete(appt._id)}
+                                                className="border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/10"
+                                            >
+                                                Complete
+                                            </Button>
+                                        )}
+                                    </div>
+                                </td>
+                            </tr>
+                        );
+                    })}
+                </Table>
+
+                <Pagination 
+                    currentPage={page}
+                    totalPages={totalPages}
+                    totalRecords={totalRecords}
+                    onPageChange={(p) => setPage(p)}
+                    limit={5}
+                />
+            </div>
 
             {/* Create Slots Modal */}
             <Modal isOpen={slotOpen} onClose={() => setSlotOpen(false)} title="Create New Time Slots">

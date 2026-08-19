@@ -15,6 +15,8 @@ import NotFound from "../pages/NotFound";
 import UserDashboard from "../pages/user/UserDashboard";
 import UserAppointments from "../pages/user/UserAppointments";
 import UserTokenStatus from "../pages/user/UserTokenStatus";
+import UserOrganizations from "../pages/user/UserOrganizations";
+import UserProfile from "../pages/user/UserProfile";
 
 // ORGANIZATION Pages
 import OrgDashboard from "../pages/org/OrgDashboard";
@@ -24,35 +26,33 @@ import OrgCounters from "../pages/org/OrgCounters";
 import OrgQueues from "../pages/org/OrgQueues";
 import OrgAppointments from "../pages/org/OrgAppointments";
 import OrgAnalytics from "../pages/org/OrgAnalytics";
+import OrgProfile from "../pages/org/OrgProfile";
 
 // STAFF Pages
 import StaffDashboard from "../pages/staff/StaffDashboard";
 import StaffCounter from "../pages/staff/StaffCounter";
 import StaffQueue from "../pages/staff/StaffQueue";
+import StaffTokens from "../pages/staff/StaffTokens";
 
 // ADMIN Pages
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import AdminOrganizations from "../pages/admin/AdminOrganizations";
-import AdminServices from "../pages/admin/AdminServices";
-import AdminQueues from "../pages/admin/AdminQueues";
-import AdminCounters from "../pages/admin/AdminCounters";
-import AdminStaff from "../pages/admin/AdminStaff";
-import AdminAnalytics from "../pages/admin/AdminAnalytics";
+import AdminProfile from "../pages/admin/AdminProfile";
 
-// Root path director that routes users directly based on role
+// Root path selector that redirects users directly based on role
 const RootRedirect = () => {
     const { user } = useAuth();
     if (!user) return <Navigate to="/login" replace />;
 
     switch (user.role) {
         case "ADMIN":
-            return <Navigate to="/admin/dashboard" replace />;
+            return <Navigate to="/admin" replace />;
         case "ORGANIZATION":
-            return <Navigate to="/organization/dashboard" replace />;
+            return <Navigate to="/organization" replace />;
         case "STAFF":
-            return <Navigate to="/staff/dashboard" replace />;
+            return <Navigate to="/staff" replace />;
         default:
-            return <Navigate to="/dashboard" replace />;
+            return <Navigate to="/user" replace />;
     }
 };
 
@@ -67,9 +67,17 @@ const AppRoutes = () => {
             {/* Root Path Selector */}
             <Route path="/" element={<RootRedirect />} />
 
+            {/* Legacy/Compat Redirects */}
+            <Route path="/dashboard" element={<Navigate to="/user" replace />} />
+            <Route path="/appointments" element={<Navigate to="/user/appointments" replace />} />
+            <Route path="/my-token" element={<Navigate to="/user/my-queue" replace />} />
+            <Route path="/admin/dashboard" element={<Navigate to="/admin" replace />} />
+            <Route path="/organization/dashboard" element={<Navigate to="/organization" replace />} />
+            <Route path="/staff/dashboard" element={<Navigate to="/staff" replace />} />
+
             {/* USER Protected Routes */}
             <Route 
-                path="/dashboard" 
+                path="/user" 
                 element={
                     <ProtectedRoute>
                         <RoleRoute allowedRoles={["USER"]}>
@@ -81,7 +89,19 @@ const AppRoutes = () => {
                 } 
             />
             <Route 
-                path="/appointments" 
+                path="/user/organizations" 
+                element={
+                    <ProtectedRoute>
+                        <RoleRoute allowedRoles={["USER"]}>
+                            <DashboardLayout>
+                                <UserOrganizations />
+                            </DashboardLayout>
+                        </RoleRoute>
+                    </ProtectedRoute>
+                } 
+            />
+            <Route 
+                path="/user/appointments" 
                 element={
                     <ProtectedRoute>
                         <RoleRoute allowedRoles={["USER"]}>
@@ -93,7 +113,7 @@ const AppRoutes = () => {
                 } 
             />
             <Route 
-                path="/my-token" 
+                path="/user/my-queue" 
                 element={
                     <ProtectedRoute>
                         <RoleRoute allowedRoles={["USER"]}>
@@ -104,15 +124,39 @@ const AppRoutes = () => {
                     </ProtectedRoute>
                 } 
             />
+            <Route 
+                path="/user/profile" 
+                element={
+                    <ProtectedRoute>
+                        <RoleRoute allowedRoles={["USER"]}>
+                            <DashboardLayout>
+                                <UserProfile />
+                            </DashboardLayout>
+                        </RoleRoute>
+                    </ProtectedRoute>
+                } 
+            />
 
             {/* ORGANIZATION Protected Routes */}
             <Route 
-                path="/organization/dashboard" 
+                path="/organization" 
                 element={
                     <ProtectedRoute>
                         <RoleRoute allowedRoles={["ORGANIZATION"]}>
                             <DashboardLayout>
                                 <OrgDashboard />
+                            </DashboardLayout>
+                        </RoleRoute>
+                    </ProtectedRoute>
+                } 
+            />
+            <Route 
+                path="/organization/profile" 
+                element={
+                    <ProtectedRoute>
+                        <RoleRoute allowedRoles={["ORGANIZATION"]}>
+                            <DashboardLayout>
+                                <OrgProfile />
                             </DashboardLayout>
                         </RoleRoute>
                     </ProtectedRoute>
@@ -193,7 +237,7 @@ const AppRoutes = () => {
 
             {/* STAFF Protected Routes */}
             <Route 
-                path="/staff/dashboard" 
+                path="/staff" 
                 element={
                     <ProtectedRoute>
                         <RoleRoute allowedRoles={["STAFF"]}>
@@ -228,10 +272,22 @@ const AppRoutes = () => {
                     </ProtectedRoute>
                 } 
             />
+            <Route 
+                path="/staff/tokens" 
+                element={
+                    <ProtectedRoute>
+                        <RoleRoute allowedRoles={["STAFF"]}>
+                            <DashboardLayout>
+                                <StaffTokens />
+                            </DashboardLayout>
+                        </RoleRoute>
+                    </ProtectedRoute>
+                } 
+            />
 
             {/* ADMIN Protected Routes */}
             <Route 
-                path="/admin/dashboard" 
+                path="/admin" 
                 element={
                     <ProtectedRoute>
                         <RoleRoute allowedRoles={["ADMIN"]}>
@@ -255,60 +311,12 @@ const AppRoutes = () => {
                 } 
             />
             <Route 
-                path="/admin/services" 
+                path="/admin/profile" 
                 element={
                     <ProtectedRoute>
                         <RoleRoute allowedRoles={["ADMIN"]}>
                             <DashboardLayout>
-                                <AdminServices />
-                            </DashboardLayout>
-                        </RoleRoute>
-                    </ProtectedRoute>
-                } 
-            />
-            <Route 
-                path="/admin/queues" 
-                element={
-                    <ProtectedRoute>
-                        <RoleRoute allowedRoles={["ADMIN"]}>
-                            <DashboardLayout>
-                                <AdminQueues />
-                            </DashboardLayout>
-                        </RoleRoute>
-                    </ProtectedRoute>
-                } 
-            />
-            <Route 
-                path="/admin/counters" 
-                element={
-                    <ProtectedRoute>
-                        <RoleRoute allowedRoles={["ADMIN"]}>
-                            <DashboardLayout>
-                                <AdminCounters />
-                            </DashboardLayout>
-                        </RoleRoute>
-                    </ProtectedRoute>
-                } 
-            />
-            <Route 
-                path="/admin/staff" 
-                element={
-                    <ProtectedRoute>
-                        <RoleRoute allowedRoles={["ADMIN"]}>
-                            <DashboardLayout>
-                                <AdminStaff />
-                            </DashboardLayout>
-                        </RoleRoute>
-                    </ProtectedRoute>
-                } 
-            />
-            <Route 
-                path="/admin/analytics" 
-                element={
-                    <ProtectedRoute>
-                        <RoleRoute allowedRoles={["ADMIN"]}>
-                            <DashboardLayout>
-                                <AdminAnalytics />
+                                <AdminProfile />
                             </DashboardLayout>
                         </RoleRoute>
                     </ProtectedRoute>

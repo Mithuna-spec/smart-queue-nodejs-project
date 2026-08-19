@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { useOrg } from "../../hooks/useOrg";
-import { getCountersByOrganization } from "../../api/counterApi";
-import { getQueuesByOrganization } from "../../api/queueApi";
+import { getAssignedCounter } from "../../api/counterApi";
+import { getQueueAnalytics } from "../../api/queueApi";
 import StatCard from "../../components/StatCard";
 import Button from "../../components/Button";
 import Loader from "../../components/Loader";
@@ -12,55 +11,50 @@ import { FiMonitor, FiLayers, FiUsers, FiArrowRight } from "react-icons/fi";
 
 const StaffDashboard = () => {
     const { user } = useAuth();
-    const { orgId, orgLoading, orgError } = useOrg();
     const [myCounter, setMyCounter] = useState(null);
     const [queueLength, setQueueLength] = useState(0);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
     useEffect(() => {
-        if (!orgId) return;
-
-        const loadStaffStats = async () => {
-            setLoading(true);
-            try {
-                const [countersRes, queuesRes] = await Promise.all([
-                    getCountersByOrganization(orgId),
-                    getQueuesByOrganization(orgId)
-                ]);
-
-                const counters = countersRes.counters || [];
-                const matched = counters.find(
-                    c => c.assignedStaff === user._id || c.assignedStaff?._id === user._id || c.assignedStaff === user.id || c.assignedStaff?._id === user.id
-                );
-                setMyCounter(matched);
-
-                if (matched) {
-                    // Find queue for this counter's service
-                    const queues = queuesRes.queues || [];
-                    const q = queues.find(
-                        queue => queue.serviceId === matched.serviceId || queue.serviceId?._id === matched.serviceId
-                    );
-                    
-                    if (q) {
-                        // Using MongoDB find/waiting list from local calculations
-                        // or default length
-                        setQueueLength(q.nextToken - 1);
-                    }
-                }
-            } catch (err) {
-                console.error(err);
-                setError("Failed to fetch staff dashboard data.");
-            } finally {
-                setLoading(false);
-            }
-        };
-
         loadStaffStats();
-    }, [orgId, user]);
+    }, []);
 
-    if (orgLoading || loading) return <Loader message="Resolving staff counter details..." />;
-    if (orgError || error) return <ErrorMessage message={orgError || error} />;
+    const loadStaffStats = async () => {
+        setLoading(true);
+        setError("");
+        try {
+            const data = await getAssignedCounter();
+            setMyCounter(data.counter);
+            
+            if (data.queue) {
+                try {
+                    const analRes = await getQueueAnalytics(data.queue._id);
+                    setQueueLength(analRes.statistics?.waiting || 0);
+                } catch (analErr) {
+                    console.error("Failed to load queue analytics:", analErr);
+                    // Fallback to basic math
+                    setQueueLength(Math.max(0, data.queue.nextToken - data.queue.currentToken - 1));
+                }
+            } else {
+                setQueueLength(0);
+            }
+        } catch (err) {
+            console.error(err);
+            if (err.response?.status === 404) {
+                // Not assigned is a valid empty state
+                setMyCounter(null);
+                setQueueLength(0);
+            } else {
+                setError(err.response?.data?.message || "Failed to fetch staff dashboard data.");
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (loading) return <Loader message="Resolving staff counter details..." />;
+    if (error) return <ErrorMessage message={error} />;
 
     return (
         <div className="space-y-8">

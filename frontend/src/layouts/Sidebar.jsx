@@ -9,7 +9,8 @@ import {
     FiMonitor, 
     FiActivity,
     FiSettings,
-    FiBriefcase
+    FiBriefcase,
+    FiUser
 } from "react-icons/fi";
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
@@ -18,31 +19,32 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
 
     const navItems = {
         USER: [
-            { path: "/dashboard", label: "Dashboard", icon: <FiHome /> },
-            { path: "/appointments", label: "Appointments", icon: <FiClock /> }
+            { path: "/user", label: "Dashboard", icon: <FiHome /> },
+            { path: "/user/organizations", label: "Organizations", icon: <FiBriefcase /> },
+            { path: "/user/my-queue", label: "My Queue", icon: <FiLayers /> },
+            { path: "/user/appointments", label: "Appointments", icon: <FiClock /> },
+            { path: "/user/profile", label: "Profile", icon: <FiUser /> }
         ],
         ORGANIZATION: [
-            { path: "/organization/dashboard", label: "Dashboard", icon: <FiHome /> },
-            { path: "/organization/services", label: "Services", icon: <FiBriefcase /> },
-            { path: "/organization/staff", label: "Staff Management", icon: <FiUsers /> },
-            { path: "/organization/counters", label: "Counters", icon: <FiMonitor /> },
+            { path: "/organization", label: "Dashboard", icon: <FiHome /> },
+            { path: "/organization/profile", label: "Organization", icon: <FiBriefcase /> },
+            { path: "/organization/staff", label: "Staff", icon: <FiUsers /> },
+            { path: "/organization/services", label: "Services", icon: <FiLayers /> },
             { path: "/organization/queues", label: "Queues", icon: <FiLayers /> },
+            { path: "/organization/counters", label: "Counters", icon: <FiMonitor /> },
             { path: "/organization/appointments", label: "Appointments", icon: <FiClock /> },
             { path: "/organization/analytics", label: "Analytics", icon: <FiActivity /> }
         ],
         STAFF: [
-            { path: "/staff/dashboard", label: "Dashboard", icon: <FiHome /> },
+            { path: "/staff", label: "Dashboard", icon: <FiHome /> },
             { path: "/staff/my-counter", label: "My Counter", icon: <FiMonitor /> },
-            { path: "/staff/queue", label: "Queue Line", icon: <FiLayers /> }
+            { path: "/staff/queue", label: "Queue", icon: <FiLayers /> },
+            { path: "/staff/tokens", label: "Tokens", icon: <FiUsers /> }
         ],
         ADMIN: [
-            { path: "/admin/dashboard", label: "Dashboard", icon: <FiHome /> },
+            { path: "/admin", label: "Dashboard", icon: <FiHome /> },
             { path: "/admin/organizations", label: "Organizations", icon: <FiBriefcase /> },
-            { path: "/admin/services", label: "Services", icon: <FiLayers /> },
-            { path: "/admin/queues", label: "Queues", icon: <FiLayers /> },
-            { path: "/admin/counters", label: "Counters", icon: <FiMonitor /> },
-            { path: "/admin/staff", label: "Staff", icon: <FiUsers /> },
-            { path: "/admin/analytics", label: "Analytics", icon: <FiActivity /> }
+            { path: "/admin/profile", label: "Profile/Account", icon: <FiUser /> }
         ]
     };
 

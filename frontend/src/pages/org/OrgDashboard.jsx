@@ -36,11 +36,21 @@ const OrgDashboard = () => {
     const [error, setError] = useState("");
 
     useEffect(() => {
-        if (!orgId) return;
+        if (!orgId || orgId === "undefined" || orgId === "null") return;
 
         const loadStats = async () => {
             setLoading(true);
+            setError("");
             try {
+                const safeFetch = async (promise, fallback) => {
+                    try {
+                        return await promise;
+                    } catch (err) {
+                        console.error("Dashboard metric load error:", err);
+                        return fallback;
+                    }
+                };
+
                 const [
                     servicesRes,
                     staffRes,
@@ -48,11 +58,11 @@ const OrgDashboard = () => {
                     queuesRes,
                     apptRes
                 ] = await Promise.all([
-                    getServicesByOrganization(orgId),
-                    getOrganizationStaff(orgId),
-                    getCountersByOrganization(orgId),
-                    getQueuesByOrganization(orgId),
-                    getOrganizationAppointments(orgId)
+                    safeFetch(getServicesByOrganization(orgId), { services: [] }),
+                    safeFetch(getOrganizationStaff(orgId), { staff: [] }),
+                    safeFetch(getCountersByOrganization(orgId), { counters: [] }),
+                    safeFetch(getQueuesByOrganization(orgId), { queues: [] }),
+                    safeFetch(getOrganizationAppointments(orgId), { appointments: [] })
                 ]);
 
                 const activeQueuesList = queuesRes.queues || [];
@@ -64,7 +74,10 @@ const OrgDashboard = () => {
                 for (const queue of activeQueuesList) {
                     try {
                         const analRes = await getQueueAnalytics(queue._id);
-                        if (analRes.analytics) {
+                        if (analRes.statistics) {
+                            waiting += analRes.statistics.waiting || 0;
+                            completed += analRes.statistics.completed || 0;
+                        } else if (analRes.analytics) {
                             waiting += analRes.analytics.waiting || 0;
                             completed += analRes.analytics.completed || 0;
                         }

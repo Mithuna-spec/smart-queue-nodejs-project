@@ -3,6 +3,7 @@ const Organization = require("../models/Organization");
 const Service = require("../models/Service");
 const Token = require("../models/Token");
 const Counter = require("../models/Counter");
+const mongoose = require("mongoose");
 
 const {
     emitTokenCalled,
@@ -23,17 +24,37 @@ const {
 const createQueue = async (req, res) => {
     try {
         const {
-            organizationId,
             serviceId,
             name,
             queuePolicy,
             priorityOrder
         } = req.body;
 
-        // Check organization
-        const organization = await Organization.findById(
-            organizationId
-        );
+        // ----------------------------------------------------
+        // Validate required fields
+        // ----------------------------------------------------
+
+        if (!serviceId) {
+            return res.status(400).json({
+                message: "serviceId is required"
+            });
+        }
+
+        if (!name || !name.trim()) {
+            return res.status(400).json({
+                message: "Queue name is required"
+            });
+        }
+
+        // ----------------------------------------------------
+        // Find organization from logged-in Organization user
+        // ----------------------------------------------------
+
+        const organization =
+            await Organization.findOne({
+                owner: req.user.userId,
+                status: "ACTIVE"
+            });
 
         if (!organization) {
             return res.status(404).json({
@@ -41,54 +62,140 @@ const createQueue = async (req, res) => {
             });
         }
 
-        // Check ownership
-        if (
-            organization.owner.toString() !== req.user.userId &&
-            req.user.role !== "ADMIN"
-        ) {
-            return res.status(403).json({
-                message:
-                    "You are not allowed to create a queue for this organization"
-            });
-        }
+        // ----------------------------------------------------
+        // Verify service belongs to this organization
+        // ----------------------------------------------------
 
-        // Check service
-        const service = await Service.findById(serviceId);
+        const service =
+            await Service.findOne({
+                _id: serviceId,
+                organizationId: organization._id,
+                status: "ACTIVE"
+            });
 
         if (!service) {
             return res.status(404).json({
-                message: "Service not found"
+                message:
+                    "Service not found in this organization"
             });
         }
 
-        // Make sure service belongs to organization
+        // ----------------------------------------------------
+        // Check duplicate queue name for this service
+        // ----------------------------------------------------
+
+        const existingQueue =
+            await Queue.findOne({
+                organizationId:
+                    organization._id,
+
+                serviceId:
+                    service._id,
+
+                name:
+                    name.trim()
+            });
+
+        if (existingQueue) {
+            return res.status(409).json({
+                message:
+                    "Queue already exists for this service"
+            });
+        }
+
+        // ----------------------------------------------------
+        // Validate queue policy
+        // ----------------------------------------------------
+
+        const finalQueuePolicy =
+            queuePolicy || "FIFO";
+
         if (
-            service.organizationId.toString() !== organizationId
+            !["FIFO", "PRIORITY"].includes(
+                finalQueuePolicy
+            )
         ) {
             return res.status(400).json({
                 message:
-                    "Service does not belong to this organization"
+                    "Invalid queue policy"
             });
         }
 
-        // Create queue
-        const queue = await Queue.create({
-            organizationId,
-            serviceId,
-            name,
-            queuePolicy,
-            priorityOrder
-        });
+        // ----------------------------------------------------
+        // Validate priority order
+        // ----------------------------------------------------
 
-        res.status(201).json({
-            message: "Queue created successfully",
+        const finalPriorityOrder =
+            priorityOrder ||
+            ["URGENT", "PRIORITY", "NORMAL"];
+
+        if (
+            !Array.isArray(
+                finalPriorityOrder
+            ) ||
+            finalPriorityOrder.some(
+                priority =>
+                    ![
+                        "URGENT",
+                        "PRIORITY",
+                        "NORMAL"
+                    ].includes(priority)
+            )
+        ) {
+            return res.status(400).json({
+                message:
+                    "Invalid priority order"
+            });
+        }
+
+        // ----------------------------------------------------
+        // Create queue
+        // ----------------------------------------------------
+
+        const queue =
+            await Queue.create({
+                organizationId:
+                    organization._id,
+
+                serviceId:
+                    service._id,
+
+                name:
+                    name.trim(),
+
+                queuePolicy:
+                    finalQueuePolicy,
+
+                priorityOrder:
+                    finalPriorityOrder
+            });
+
+        return res.status(201).json({
+            message:
+                "Queue created successfully",
+
             queue
         });
 
     } catch (error) {
-        console.error(error);
 
-        res.status(500).json({
+        console.error(
+            "Create queue error:",
+            error
+        );
+
+        // ----------------------------------------------------
+        // Handle duplicate organization + service + name
+        // ----------------------------------------------------
+
+        if (error.code === 11000) {
+            return res.status(409).json({
+                message:
+                    "Queue already exists for this service"
+            });
+        }
+
+        return res.status(500).json({
             message: "Server error"
         });
     }
@@ -103,30 +210,62 @@ const getQueuesByOrganization = async (req, res) => {
     try {
         const { organizationId } = req.params;
 
-        const queues = await Queue.find({
-            organizationId
-        })
-            .populate(
-                "serviceId",
-                "name averageServiceTime"
-            )
-            .populate(
-                "organizationId",
-                "name"
-            );
-
-        res.status(200).json({
-            queues
+        const organization = await Organization.findOne({
+            owner: req.user.userId,
+            status: "ACTIVE"
         });
 
+        if (!organization) {
+            return res.status(404).json({
+                message: "Organization not found"
+            });
+        }
+
+        if (organization._id.toString() !== organizationId.toString()) {
+            return res.status(403).json({
+                message:
+                    "You are not allowed to view queues of this organization"
+            });
+        }
+
+        const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+        const limit = Math.min(
+            Math.max(parseInt(req.query.limit, 10) || 10, 1),
+            100
+        );
+        const skip = (page - 1) * limit;
+
+        const filter = { organizationId: organization._id };
+
+        if (req.query.serviceId) {
+            filter.serviceId = req.query.serviceId;
+        }
+
+        const [queues, total] = await Promise.all([
+            Queue.find(filter)
+                .populate("serviceId", "name averageServiceTime")
+                .populate("organizationId", "name")
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit),
+            Queue.countDocuments(filter)
+        ]);
+
+        return res.status(200).json({
+            queues,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit)
+            }
+        });
     } catch (error) {
-        console.error(error);
-
-        res.status(500).json({
-            message: "Server error"
-        });
+        console.error("Get queues error:", error);
+        return res.status(500).json({ message: "Server error" });
     }
 };
+;
 
 
 // ============================================================
@@ -135,15 +274,18 @@ const getQueuesByOrganization = async (req, res) => {
 
 const getQueueById = async (req, res) => {
     try {
-        const queue = await Queue.findById(req.params.id)
-            .populate(
-                "serviceId",
-                "name averageServiceTime"
-            )
-            .populate(
-                "organizationId",
-                "name"
-            );
+        const { id } = req.params;
+
+        const queue =
+            await Queue.findById(id)
+                .populate(
+                    "serviceId",
+                    "name averageServiceTime"
+                )
+                .populate(
+                    "organizationId",
+                    "name"
+                );
 
         if (!queue) {
             return res.status(404).json({
@@ -151,14 +293,48 @@ const getQueueById = async (req, res) => {
             });
         }
 
-        res.status(200).json({
+        // ----------------------------------------------------
+        // Organization users can only access their own queues
+        // ----------------------------------------------------
+
+        if (req.user.role === "ORGANIZATION") {
+
+            const organization =
+                await Organization.findOne({
+                    owner: req.user.userId,
+                    status: "ACTIVE"
+                });
+
+            if (!organization) {
+                return res.status(404).json({
+                    message:
+                        "Organization not found"
+                });
+            }
+
+            if (
+                queue.organizationId._id.toString() !==
+                organization._id.toString()
+            ) {
+                return res.status(403).json({
+                    message:
+                        "You are not allowed to access this queue"
+                });
+            }
+        }
+
+        return res.status(200).json({
             queue
         });
 
     } catch (error) {
-        console.error(error);
 
-        res.status(500).json({
+        console.error(
+            "Get queue error:",
+            error
+        );
+
+        return res.status(500).json({
             message: "Server error"
         });
     }
@@ -173,6 +349,20 @@ const joinQueue = async (req, res) => {
     try {
         const { queueId } = req.params;
 
+        // ----------------------------------------------------
+        // Validate Queue ID
+        // ----------------------------------------------------
+
+        if (!mongoose.Types.ObjectId.isValid(queueId)) {
+            return res.status(400).json({
+                message: "Invalid Queue ID format"
+            });
+        }
+
+        // ----------------------------------------------------
+        // Find queue
+        // ----------------------------------------------------
+
         const queue = await Queue.findById(queueId);
 
         if (!queue) {
@@ -181,75 +371,191 @@ const joinQueue = async (req, res) => {
             });
         }
 
-        if (queue.status !== "OPEN") {
+        // ----------------------------------------------------
+        // Verify organization is active
+        // ----------------------------------------------------
+
+        const organization =
+            await Organization.findOne({
+                _id: queue.organizationId,
+                status: "ACTIVE"
+            });
+
+        if (!organization) {
             return res.status(400).json({
-                message: "Queue is currently closed"
+                message:
+                    "Organization is not active"
             });
         }
 
-        // Check whether user already has an active token
-        const existingToken = await Token.findOne({
-            queueId,
-            userId: req.user.userId,
-            status: {
-                $in: [
-                    "WAITING",
-                    "CALLED",
-                    "IN_SERVICE"
-                ]
-            }
-        });
+        // ----------------------------------------------------
+        // Verify service is active
+        // ----------------------------------------------------
+
+        const service =
+            await Service.findOne({
+                _id: queue.serviceId,
+                organizationId:
+                    queue.organizationId,
+                status: "ACTIVE"
+            });
+
+        if (!service) {
+            return res.status(400).json({
+                message:
+                    "Service is not active"
+            });
+        }
+
+        // ----------------------------------------------------
+        // Queue must be open
+        // ----------------------------------------------------
+
+        // ----------------------------------------------------
+        // Queue availability
+        // ----------------------------------------------------
+
+        if (queue.status !== "OPEN") {
+            return res.status(400).json({
+                message:
+                    "Queue is currently closed"
+            });
+        }
+
+        // ----------------------------------------------------
+        // Service queue availability
+        // ----------------------------------------------------
+
+        if (!service.queueEnabled) {
+            return res.status(400).json({
+                message:
+                    "Queue participation is disabled for this service"
+            });
+        }
+
+        // ----------------------------------------------------
+        // Check duplicate active token
+        // ----------------------------------------------------
+
+        const existingToken =
+            await Token.findOne({
+                queueId,
+                userId: req.user.userId,
+                status: {
+                    $in: [
+                        "WAITING",
+                        "CALLED",
+                        "IN_SERVICE"
+                    ]
+                }
+            });
 
         if (existingToken) {
-            return res.status(400).json({
+            return res.status(409).json({
                 message:
                     "You already have an active token in this queue",
                 token: existingToken
             });
         }
 
+        // ----------------------------------------------------
         // Generate token number
-        const tokenNumber = queue.nextToken;
+        // ----------------------------------------------------
 
+        const tokenNumber =
+            queue.nextToken;
+
+        // ----------------------------------------------------
         // Create token
-        const token = await Token.create({
-            queueId,
-            userId: req.user.userId,
-            tokenNumber
-        });
+        // ----------------------------------------------------
 
+        const requestedPriority =
+            (req.body && req.body.priority) || "NORMAL";
+
+        if (
+            ![
+                "NORMAL",
+                "PRIORITY",
+                "URGENT"
+            ].includes(requestedPriority)
+        ) {
+            return res.status(400).json({
+                message: "Invalid priority"
+            });
+        }
+
+        if (
+            requestedPriority !== "NORMAL" &&
+            !service.priorityEnabled
+        ) {
+            return res.status(400).json({
+                message:
+                    "Priority queue is not enabled for this service"
+            });
+        }
+
+        const token =
+            await Token.create({
+                queueId,
+                userId: req.user.userId,
+                tokenNumber,
+                priority: requestedPriority
+            });
+
+        // ----------------------------------------------------
         // Increment next token
+        // ----------------------------------------------------
+
         queue.nextToken += 1;
 
         await queue.save();
 
+        // ----------------------------------------------------
         // Calculate position
+        // ----------------------------------------------------
+
         const positionData =
             await getTokenPosition(token);
 
         const position =
             positionData.position;
 
-        // Get estimated wait time using unified service
+        // ----------------------------------------------------
+        // Calculate estimated wait time
+        // ----------------------------------------------------
+
         const waitData =
             await getEstimatedWaitTime(token);
 
         const estimatedWaitTime =
             waitData.estimatedWaitTime;
 
-        res.status(201).json({
-            message: "Successfully joined queue",
+        // ----------------------------------------------------
+        // Response
+        // ----------------------------------------------------
+
+        return res.status(201).json({
+            message:
+                "Successfully joined queue",
 
             token: {
                 id: token._id,
-                tokenNumber: token.tokenNumber,
-                status: token.status,
-                priority: token.priority
+                tokenNumber:
+                    token.tokenNumber,
+                status:
+                    token.status,
+                priority:
+                    token.priority
             },
 
             queue: {
                 id: queue._id,
                 name: queue.name
+            },
+
+            service: {
+                id: service._id,
+                name: service.name
             },
 
             position,
@@ -258,9 +564,37 @@ const joinQueue = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
 
-        res.status(500).json({
+        console.error(
+            "Join queue error:",
+            error
+        );
+
+        // ----------------------------------------------------
+        // Duplicate active token
+        // ----------------------------------------------------
+
+        if (error.code === 11000) {
+            const Token = require("../models/Token");
+            const existingToken = await Token.findOne({
+                queueId,
+                userId: req.user.userId,
+                status: {
+                    $in: [
+                        "WAITING",
+                        "CALLED",
+                        "IN_SERVICE"
+                    ]
+                }
+            });
+            return res.status(409).json({
+                message:
+                    "You already have an active token in this queue",
+                token: existingToken || null
+            });
+        }
+
+        return res.status(500).json({
             message: "Server error"
         });
     }
@@ -577,13 +911,18 @@ const updateQueuePolicy = async (req, res) => {
         const { queueId } = req.params;
 
         const {
+            name,
             queuePolicy,
-            priorityOrder
+            priorityOrder,
+            status
         } = req.body;
 
-        const queue = await Queue.findById(
-            queueId
-        );
+        // ----------------------------------------------------
+        // Find queue
+        // ----------------------------------------------------
+
+        const queue =
+            await Queue.findById(queueId);
 
         if (!queue) {
             return res.status(404).json({
@@ -591,10 +930,15 @@ const updateQueuePolicy = async (req, res) => {
             });
         }
 
+        // ----------------------------------------------------
+        // Find logged-in Organization
+        // ----------------------------------------------------
+
         const organization =
-            await Organization.findById(
-                queue.organizationId
-            );
+            await Organization.findOne({
+                owner: req.user.userId,
+                status: "ACTIVE"
+            });
 
         if (!organization) {
             return res.status(404).json({
@@ -602,10 +946,13 @@ const updateQueuePolicy = async (req, res) => {
             });
         }
 
+        // ----------------------------------------------------
+        // Organization isolation
+        // ----------------------------------------------------
+
         if (
-            organization.owner.toString() !==
-                req.user.userId &&
-            req.user.role !== "ADMIN"
+            queue.organizationId.toString() !==
+            organization._id.toString()
         ) {
             return res.status(403).json({
                 message:
@@ -613,44 +960,154 @@ const updateQueuePolicy = async (req, res) => {
             });
         }
 
+        // ----------------------------------------------------
+        // Validate queue name
+        // ----------------------------------------------------
+
         if (
-            !["FIFO", "PRIORITY"].includes(
-                queuePolicy
-            )
+            name !== undefined &&
+            !name.trim()
         ) {
             return res.status(400).json({
-                message: "Invalid queue policy"
+                message:
+                    "Queue name cannot be empty"
             });
         }
 
-        queue.queuePolicy =
-            queuePolicy;
+        // ----------------------------------------------------
+        // Check duplicate queue name
+        // ----------------------------------------------------
 
-        if (priorityOrder) {
+        if (name !== undefined) {
+
+            const existingQueue =
+                await Queue.findOne({
+                    organizationId:
+                        organization._id,
+
+                    serviceId:
+                        queue.serviceId,
+
+                    name:
+                        name.trim(),
+
+                    _id: {
+                        $ne: queue._id
+                    }
+                });
+
+            if (existingQueue) {
+                return res.status(409).json({
+                    message:
+                        "Queue already exists for this service"
+                });
+            }
+        }
+
+        // ----------------------------------------------------
+        // Validate queue policy
+        // ----------------------------------------------------
+
+        if (
+            queuePolicy !== undefined &&
+            ![
+                "FIFO",
+                "PRIORITY"
+            ].includes(queuePolicy)
+        ) {
+            return res.status(400).json({
+                message:
+                    "Invalid queue policy"
+            });
+        }
+
+        // ----------------------------------------------------
+        // Validate priority order
+        // ----------------------------------------------------
+
+        if (priorityOrder !== undefined) {
+
+            if (
+                !Array.isArray(priorityOrder) ||
+                priorityOrder.some(
+                    priority =>
+                        ![
+                            "URGENT",
+                            "PRIORITY",
+                            "NORMAL"
+                        ].includes(priority)
+                )
+            ) {
+                return res.status(400).json({
+                    message:
+                        "Invalid priority order"
+                });
+            }
+
             queue.priorityOrder =
                 priorityOrder;
         }
 
+        // ----------------------------------------------------
+        // Validate status
+        // ----------------------------------------------------
+
+        if (status !== undefined) {
+
+            if (
+                ![
+                    "OPEN",
+                    "PAUSED",
+                    "CLOSED"
+                ].includes(status)
+            ) {
+                return res.status(400).json({
+                    message:
+                        "Invalid queue status"
+                });
+            }
+
+            queue.status = status;
+        }
+
+        // ----------------------------------------------------
+        // Update fields
+        // ----------------------------------------------------
+
+        if (name !== undefined) {
+            queue.name =
+                name.trim();
+        }
+
+        if (queuePolicy !== undefined) {
+            queue.queuePolicy =
+                queuePolicy;
+        }
+
         await queue.save();
 
-        res.status(200).json({
+        return res.status(200).json({
             message:
-                "Queue policy updated successfully",
+                "Queue updated successfully",
 
-            queue: {
-                id: queue._id,
-                name: queue.name,
-                queuePolicy:
-                    queue.queuePolicy,
-                priorityOrder:
-                    queue.priorityOrder
-            }
+            queue
         });
 
     } catch (error) {
-        console.error(error);
 
-        res.status(500).json({
+        console.error(
+            "Update queue error:",
+            error
+        );
+
+        if (error.code === 11000) {
+            return res.status(409).json({
+                message:
+                    "Queue already exists for this service"
+            });
+        }
+
+        return res.status(500).json({
             message: "Server error"
         });
     }
@@ -665,9 +1122,13 @@ const getQueueAnalytics = async (req, res) => {
     try {
         const { queueId } = req.params;
 
-        const queue = await Queue.findById(
-            queueId
-        );
+        if (!mongoose.Types.ObjectId.isValid(queueId)) {
+            return res.status(400).json({
+                message: "Invalid queue ID"
+            });
+        }
+
+        const queue = await Queue.findById(queueId);
 
         if (!queue) {
             return res.status(404).json({
@@ -676,9 +1137,7 @@ const getQueueAnalytics = async (req, res) => {
         }
 
         const organization =
-            await Organization.findById(
-                queue.organizationId
-            );
+            await Organization.findById(queue.organizationId);
 
         if (!organization) {
             return res.status(404).json({
@@ -687,157 +1146,350 @@ const getQueueAnalytics = async (req, res) => {
         }
 
         if (
-            organization.owner.toString() !==
-                req.user.userId &&
-            req.user.role !== "ADMIN"
+            req.user.role !== "ADMIN" &&
+            organization.owner.toString() !== req.user.userId.toString()
         ) {
             return res.status(403).json({
-                message:
-                    "You are not allowed to view analytics"
+                message: "You are not allowed to view analytics"
             });
         }
 
-        // Start of today
         const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
 
-        startOfDay.setHours(
-            0,
-            0,
-            0,
-            0
-        );
+        const endOfDay = new Date(startOfDay);
+        endOfDay.setDate(endOfDay.getDate() + 1);
 
-        // Start of tomorrow
-        const endOfDay =
-            new Date(startOfDay);
-
-        endOfDay.setDate(
-            endOfDay.getDate() + 1
-        );
-
-        const tokens = await Token.find({
-            queueId,
-            createdAt: {
-                $gte: startOfDay,
-                $lt: endOfDay
+        const [result] = await Token.aggregate([
+            {
+                $match: {
+                    queueId: new mongoose.Types.ObjectId(queueId),
+                    createdAt: {
+                        $gte: startOfDay,
+                        $lt: endOfDay
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    total: { $sum: 1 },
+                    waiting: {
+                        $sum: {
+                            $cond: [{ $eq: ["$status", "WAITING"] }, 1, 0]
+                        }
+                    },
+                    called: {
+                        $sum: {
+                            $cond: [{ $eq: ["$status", "CALLED"] }, 1, 0]
+                        }
+                    },
+                    inService: {
+                        $sum: {
+                            $cond: [{ $eq: ["$status", "IN_SERVICE"] }, 1, 0]
+                        }
+                    },
+                    completed: {
+                        $sum: {
+                            $cond: [{ $eq: ["$status", "COMPLETED"] }, 1, 0]
+                        }
+                    },
+                    cancelled: {
+                        $sum: {
+                            $cond: [{ $eq: ["$status", "CANCELLED"] }, 1, 0]
+                        }
+                    },
+                    skipped: {
+                        $sum: {
+                            $cond: [{ $eq: ["$status", "SKIPPED"] }, 1, 0]
+                        }
+                    },
+                    completedWaitingTime: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$status", "COMPLETED"] },
+                                { $ifNull: ["$waitingTime", 0] },
+                                0
+                            ]
+                        }
+                    },
+                    completedServiceTime: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$status", "COMPLETED"] },
+                                { $ifNull: ["$serviceTime", 0] },
+                                0
+                            ]
+                        }
+                    }
+                }
             }
-        });
+        ]);
 
-        const completedTokens =
-            tokens.filter(
-                token =>
-                    token.status ===
-                    "COMPLETED"
-            );
+        const statistics = result || {
+            total: 0,
+            waiting: 0,
+            called: 0,
+            inService: 0,
+            completed: 0,
+            cancelled: 0,
+            skipped: 0,
+            completedWaitingTime: 0,
+            completedServiceTime: 0
+        };
 
-        const totalWaitingTime =
-            completedTokens.reduce(
-                (sum, token) =>
-                    sum + token.waitingTime,
-                0
-            );
+        const completedCount = statistics.completed || 0;
 
-        const totalServiceTime =
-            completedTokens.reduce(
-                (sum, token) =>
-                    sum + token.serviceTime,
-                0
-            );
-
-        const averageWaitingTime =
-            completedTokens.length > 0
-                ? Math.round(
-                    totalWaitingTime /
-                    completedTokens.length
-                )
-                : 0;
-
-        const averageServiceTime =
-            completedTokens.length > 0
-                ? Math.round(
-                    totalServiceTime /
-                    completedTokens.length
-                )
-                : 0;
-
-        const total =
-            tokens.length;
-
-        const waiting =
-            tokens.filter(
-                token =>
-                    token.status ===
-                    "WAITING"
-            ).length;
-
-        const called =
-            tokens.filter(
-                token =>
-                    token.status ===
-                    "CALLED"
-            ).length;
-
-        const inService =
-            tokens.filter(
-                token =>
-                    token.status ===
-                    "IN_SERVICE"
-            ).length;
-
-        const completed =
-            tokens.filter(
-                token =>
-                    token.status ===
-                    "COMPLETED"
-            ).length;
-
-        const cancelled =
-            tokens.filter(
-                token =>
-                    token.status ===
-                    "CANCELLED"
-            ).length;
-
-        const skipped =
-            tokens.filter(
-                token =>
-                    token.status ===
-                    "SKIPPED"
-            ).length;
-
-        res.status(200).json({
-
+        return res.status(200).json({
             queue: {
                 id: queue._id,
                 name: queue.name,
-                policy:
-                    queue.queuePolicy
+                policy: queue.queuePolicy
+            },
+            date: startOfDay,
+            statistics: {
+                total: statistics.total || 0,
+                waiting: statistics.waiting || 0,
+                called: statistics.called || 0,
+                inService: statistics.inService || 0,
+                completed: completedCount,
+                cancelled: statistics.cancelled || 0,
+                skipped: statistics.skipped || 0,
+                averageWaitingTime:
+                    completedCount > 0
+                        ? Math.round(
+                            (statistics.completedWaitingTime || 0) /
+                            completedCount
+                        )
+                        : 0,
+                averageServiceTime:
+                    completedCount > 0
+                        ? Math.round(
+                            (statistics.completedServiceTime || 0) /
+                            completedCount
+                        )
+                        : 0
+            }
+        });
+    } catch (error) {
+        console.error("Queue analytics error:", error);
+
+        return res.status(500).json({
+            message: "Server error"
+        });
+    }
+};
+;
+
+
+// ============================================================
+// GET AVAILABLE QUEUES FOR USERS
+// ============================================================
+
+const getAvailableQueues = async (req, res) => {
+    try {
+        const { organizationId } = req.params;
+
+        // ----------------------------------------------------
+        // Verify active organization
+        // ----------------------------------------------------
+
+        const organization =
+            await Organization.findOne({
+                _id: organizationId,
+                status: "ACTIVE"
+            });
+
+        if (!organization) {
+            return res.status(404).json({
+                message: "Organization not found"
+            });
+        }
+
+        // ----------------------------------------------------
+        // Get active queues
+        // ----------------------------------------------------
+
+        const queues =
+            await Queue.find({
+                organizationId,
+                status: "OPEN"
+            })
+                .populate(
+                    "serviceId",
+                    "name description queueEnabled"
+                )
+                .sort({
+                    name: 1
+                });
+
+        // ----------------------------------------------------
+        // Only queues whose service allows queue participation
+        // ----------------------------------------------------
+
+        const availableQueues =
+            queues.filter(
+                queue =>
+                    queue.serviceId &&
+                    queue.serviceId.queueEnabled === true
+            );
+
+        return res.status(200).json({
+            organization: {
+                id: organization._id,
+                name: organization.name
             },
 
-            date: startOfDay,
-
-            statistics: {
-                total,
-                waiting,
-                called,
-                inService,
-                completed,
-                cancelled,
-                skipped,
-                averageWaitingTime,
-                averageServiceTime
-            }
+            queues: availableQueues
         });
 
     } catch (error) {
-        console.error(error);
 
-        res.status(500).json({
+        console.error(
+            "Get available queues error:",
+            error
+        );
+
+        return res.status(500).json({
             message: "Server error"
         });
     }
 };
 
+// ============================================================
+// GET ASSIGNED QUEUE FOR STAFF
+// ============================================================
+
+const getAssignedQueue = async (req, res) => {
+    try {
+        // 1. Find the staff's ACTIVE OrganizationStaff membership
+        const OrganizationStaff = require("../models/OrganizationStaff");
+        const membership = await OrganizationStaff.findOne({
+            userId: req.user.userId,
+            role: "STAFF",
+            status: "ACTIVE"
+        });
+
+        if (!membership) {
+            return res.status(403).json({
+                message: "You are not an active staff member of any organization"
+            });
+        }
+
+        // 2. Find the staff's assigned counter
+        const Counter = require("../models/Counter");
+        const counter = await Counter.findOne({
+            assignedStaffId: req.user.userId,
+            organizationId: membership.organizationId
+        });
+
+        if (!counter) {
+            return res.status(404).json({
+                message: "No counter assigned to this staff member"
+            });
+        }
+
+        // 3. Determine the counter's service/queue
+        const Queue = require("../models/Queue");
+        const queue = await Queue.findOne({
+            serviceId: counter.serviceId,
+            organizationId: membership.organizationId,
+            status: "OPEN"
+        });
+
+        if (!queue) {
+            return res.status(404).json({
+                message: "Active queue not found for this counter's service"
+            });
+        }
+
+        // 4. Calculate basic metrics for this queue
+        const Token = require("../models/Token");
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(startOfDay);
+        endOfDay.setDate(endOfDay.getDate() + 1);
+
+        const [metricsResult] = await Token.aggregate([
+            {
+                $match: {
+                    queueId: queue._id,
+                    createdAt: {
+                        $gte: startOfDay,
+                        $lt: endOfDay
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    total: { $sum: 1 },
+                    waiting: {
+                        $sum: {
+                            $cond: [{ $eq: ["$status", "WAITING"] }, 1, 0]
+                        }
+                    },
+                    called: {
+                        $sum: {
+                            $cond: [{ $eq: ["$status", "CALLED"] }, 1, 0]
+                        }
+                    },
+                    served: {
+                        $sum: {
+                            $cond: [{ $eq: ["$status", "COMPLETED"] }, 1, 0]
+                        }
+                    },
+                    skipped: {
+                        $sum: {
+                            $cond: [{ $eq: ["$status", "SKIPPED"] }, 1, 0]
+                        }
+                    },
+                    totalWaitingTime: {
+                        $sum: {
+                            $cond: [
+                                { $and: ["$calledAt", "$createdAt"] },
+                                { $subtract: ["$calledAt", "$createdAt"] },
+                                0
+                            ]
+                        }
+                    },
+                    servedCount: {
+                        $sum: {
+                            $cond: [{ $and: ["$calledAt", "$createdAt"] }, 1, 0]
+                        }
+                    }
+                }
+            }
+        ]);
+
+        const statistics = {
+            total: metricsResult?.total || 0,
+            waiting: metricsResult?.waiting || 0,
+            called: metricsResult?.called || 0,
+            served: metricsResult?.served || 0,
+            skipped: metricsResult?.skipped || 0,
+            averageWaitingTime: 0
+        };
+
+        if (metricsResult && metricsResult.servedCount > 0) {
+            // Convert to minutes
+            statistics.averageWaitingTime = Math.round(
+                metricsResult.totalWaitingTime / metricsResult.servedCount / 60000
+            );
+        }
+
+        return res.status(200).json({
+            queue,
+            statistics
+        });
+
+    } catch (error) {
+        console.error("Get assigned queue error:", error);
+        return res.status(500).json({
+            message: "Server error"
+        });
+    }
+};
 
 // ============================================================
 // EXPORT
@@ -846,9 +1498,11 @@ const getQueueAnalytics = async (req, res) => {
 module.exports = {
     createQueue,
     getQueuesByOrganization,
+    getAvailableQueues,
     getQueueById,
     joinQueue,
     callNextToken,
     updateQueuePolicy,
-    getQueueAnalytics
+    getQueueAnalytics,
+    getAssignedQueue
 };

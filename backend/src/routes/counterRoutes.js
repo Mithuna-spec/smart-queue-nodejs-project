@@ -4,7 +4,8 @@ const {
     createCounter,
     getCountersByOrganization,
     assignStaffToCounter,
-    updateCounterStatus
+    updateCounterStatus,
+    getAssignedCounter
 } = require("../controllers/counterController");
 
 const authMiddleware =
@@ -19,46 +20,75 @@ const organizationAccessMiddleware =
 const router = express.Router();
 
 
-// Create counter
+// ============================================================
+// CREATE COUNTER
+// ORGANIZATION ONLY
+// ============================================================
+
 router.post(
     "/",
     authMiddleware,
-    roleMiddleware("ADMIN", "ORGANIZATION"),
-    organizationAccessMiddleware,
+    roleMiddleware("ORGANIZATION"),
     createCounter
 );
 
 
-// Get counters
+// ============================================================
+// STAFF → GET ASSIGNED COUNTER
+// ============================================================
+
+router.get(
+    "/assigned",
+    authMiddleware,
+    roleMiddleware("STAFF"),
+    getAssignedCounter
+);
+
+
+// ============================================================
+// GET COUNTERS BY ORGANIZATION
+// ORGANIZATION & STAFF ONLY
+// Pagination handled by controller
+// ============================================================
+
 router.get(
     "/organization/:organizationId",
     authMiddleware,
-    organizationAccessMiddleware,
+    roleMiddleware("ORGANIZATION"),
     getCountersByOrganization
 );
 
 
-// Assign staff
+// ============================================================
+// ASSIGN STAFF TO COUNTER
+// ORGANIZATION ONLY
+// ============================================================
+
 router.patch(
     "/:counterId/staff",
     authMiddleware,
-    roleMiddleware("ADMIN", "ORGANIZATION"),
-    organizationAccessMiddleware,
+    roleMiddleware("ORGANIZATION"),
     assignStaffToCounter
 );
 
 
-// Update counter status
+// ============================================================
+// UPDATE COUNTER
+//
+// ORGANIZATION → can edit own counter
+// STAFF        → can update status of assigned counter
+// ============================================================
+
 router.patch(
     "/:counterId/status",
     authMiddleware,
     roleMiddleware(
-        "ADMIN",
         "ORGANIZATION",
         "STAFF"
     ),
     organizationAccessMiddleware,
     updateCounterStatus
 );
+
 
 module.exports = router;

@@ -6,11 +6,14 @@ const connectDB = require("./config/database");
 const { Server } = require("socket.io");
 const setupQueueSocket = require("./socket/queueSocket");
 const { setIO } = require("./socket/socketInstance");
+const { ensureSingleAdmin } =
+    require("./services/adminService");
 
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
     await connectDB();
+    await ensureSingleAdmin();
 
     const server = http.createServer(app);
 

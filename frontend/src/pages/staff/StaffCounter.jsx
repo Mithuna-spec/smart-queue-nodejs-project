@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { useOrg } from "../../hooks/useOrg";
-import { getCountersByOrganization, updateCounterStatus } from "../../api/counterApi";
-import { getQueuesByOrganization, callNextToken } from "../../api/queueApi";
+import { getAssignedCounter, updateCounterStatus } from "../../api/counterApi";
+import { callNextToken } from "../../api/queueApi";
 import { getTokenStatus, startService, completeToken, skipToken } from "../../api/tokenApi";
 import Button from "../../components/Button";
 import Card from "../../components/Card";
@@ -13,7 +12,6 @@ import { FiPlay, FiCheck, FiFastForward, FiPlusCircle, FiPower } from "react-ico
 
 const StaffCounter = () => {
     const { user } = useAuth();
-    const { orgId, orgLoading, orgError } = useOrg();
 
     const [counter, setCounter] = useState(null);
     const [queue, setQueue] = useState(null);
@@ -21,41 +19,24 @@ const StaffCounter = () => {
     // Active token operations
     const [activeToken, setActiveToken] = useState(null);
     
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
 
     // Initial load: resolve counter and queue
     useEffect(() => {
-        if (orgId) {
-            loadCounterAndQueue();
-        }
-    }, [orgId]);
+        loadCounterAndQueue();
+    }, []);
 
     const loadCounterAndQueue = async () => {
         setLoading(true);
         setError("");
         try {
-            const [countersRes, queuesRes] = await Promise.all([
-                getCountersByOrganization(orgId),
-                getQueuesByOrganization(orgId)
-            ]);
-
-            const counters = countersRes.counters || [];
-            const matchedCounter = counters.find(
-                c => c.assignedStaff === user._id || c.assignedStaff?._id === user._id || c.assignedStaff === user.id || c.assignedStaff?._id === user.id
-            );
-            
-            if (matchedCounter) {
-                setCounter(matchedCounter);
-                
-                // Find associated queue
-                const queues = queuesRes.queues || [];
-                const matchedQueue = queues.find(
-                    q => q.serviceId === matchedCounter.serviceId || q.serviceId?._id === matchedCounter.serviceId
-                );
-                setQueue(matchedQueue);
+            const data = await getAssignedCounter();
+            if (data.counter) {
+                setCounter(data.counter);
+                setQueue(data.queue);
 
                 // Restore active token if exists in localStorage
                 const storedTokenId = localStorage.getItem("activeStaffTokenId");
@@ -74,7 +55,11 @@ const StaffCounter = () => {
             }
         } catch (err) {
             console.error(err);
-            setError("Failed to load counter dashboard details.");
+            if (err.response?.status === 404) {
+                setCounter(null);
+            } else {
+                setError(err.response?.data?.message || "Failed to load counter dashboard details.");
+            }
         } finally {
             setLoading(false);
         }
@@ -180,8 +165,7 @@ const StaffCounter = () => {
         }
     };
 
-    if (orgLoading || loading) return <Loader message="Setting up desk counter..." />;
-    if (orgError) return <ErrorMessage message={orgError} />;
+    if (loading) return <Loader message="Setting up desk counter..." />;
 
     if (!counter) {
         return (
@@ -220,7 +204,7 @@ const StaffCounter = () => {
 
             {error && <ErrorMessage message={error} />}
             {success && (
-                <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3 rounded-lg text-xs font-semibold select-none">
+                <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3 rounded-lg text-xs font-semibold select-none text-center">
                     {success}
                 </div>
             )}

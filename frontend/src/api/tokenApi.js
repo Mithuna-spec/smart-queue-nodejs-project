@@ -5,6 +5,13 @@ export const getTokenStatus = async (id) => {
     return response.data;
 };
 
+export const getQueueTokens = async (queueId, page = 1, limit = 10, status = "") => {
+    const response = await API.get(`/api/tokens/queue/${queueId}`, {
+        params: { page, limit, status }
+    });
+    return response.data;
+};
+
 export const completeToken = async (id) => {
     const response = await API.post(`/api/tokens/${id}/complete`);
     return response.data;

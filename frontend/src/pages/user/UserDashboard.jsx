@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useSocket } from "../../context/SocketContext";
-import { getOrganizations } from "../../api/organizationApi";
-import { getServicesByOrganization } from "../../api/serviceApi";
-import { getQueuesByOrganization, joinQueue } from "../../api/queueApi";
+import { getAvailableOrganizations } from "../../api/organizationApi";
+import { getAvailableServices } from "../../api/serviceApi";
+import { getAvailableQueues, joinQueue } from "../../api/queueApi";
 import { getTokenStatus, cancelToken } from "../../api/tokenApi";
 import TokenCard from "../../components/TokenCard";
 import Button from "../../components/Button";
@@ -40,11 +40,11 @@ const UserDashboard = () => {
         const fetchOrgs = async () => {
             setLoading(true);
             try {
-                const data = await getOrganizations();
+                const data = await getAvailableOrganizations();
                 setOrganizations(data.organizations || []);
             } catch (err) {
                 console.error(err);
-                setError("Failed to fetch organizations.");
+                setError("Failed to fetch active tenant organizations.");
             } finally {
                 setLoading(false);
             }
@@ -67,7 +67,6 @@ const UserDashboard = () => {
         const handleQueueUpdated = (payload) => {
             console.log("Socket: Queue updated:", payload);
             if (activeToken && payload.queueId === activeToken.queueId) {
-                // Refresh token details to update position & wait time
                 fetchTokenDetails(activeToken._id || activeToken.id);
             }
         };
@@ -142,7 +141,7 @@ const UserDashboard = () => {
 
         const fetchServices = async () => {
             try {
-                const data = await getServicesByOrganization(selectedOrg);
+                const data = await getAvailableServices(selectedOrg);
                 setServices(data.services || []);
                 setSelectedService("");
                 setQueues([]);
@@ -164,7 +163,7 @@ const UserDashboard = () => {
 
         const fetchQueues = async () => {
             try {
-                const data = await getQueuesByOrganization(selectedOrg);
+                const data = await getAvailableQueues(selectedOrg);
                 // Filter queues that match selected service
                 const filtered = (data.queues || []).filter(q => q.serviceId === selectedService || q.serviceId?._id === selectedService);
                 setQueues(filtered);
@@ -242,8 +241,8 @@ const UserDashboard = () => {
                             peopleAhead={peopleAhead} 
                             estimatedWaitTime={estWaitTime} 
                             onCancel={handleCancelToken}
-                            queueName={queues.find(q => q._id === activeToken.queueId)?.name}
-                            serviceName={services.find(s => s._id === selectedService)?.name}
+                            queueName={activeToken.queueId?.name}
+                            serviceName={activeToken.serviceId?.name}
                         />
                     ) : (
                         <div className="bg-[#292A2F] border border-[#35363B] rounded-xl p-8 text-center flex flex-col items-center justify-center space-y-3">

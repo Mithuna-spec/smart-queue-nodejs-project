@@ -5,45 +5,57 @@ const appointmentSlotSchema = new mongoose.Schema(
         organizationId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Organization",
-            required: true
+            required: true,
+            index: true
         },
 
         serviceId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Service",
-            required: true
+            required: true,
+            index: true
         },
 
         date: {
             type: Date,
-            required: true
+            required: true,
+            index: true
         },
 
         startTime: {
             type: String,
-            required: true
+            required: true,
+            trim: true
         },
 
         endTime: {
             type: String,
-            required: true
+            required: true,
+            trim: true
         },
 
         capacity: {
             type: Number,
-            default: 1,
-            min: 1
+            required: true,
+            min: 1,
+            default: 1
         },
 
         bookedCount: {
             type: Number,
+            min: 0,
             default: 0
         },
 
         status: {
             type: String,
-            enum: ["AVAILABLE", "FULL", "CLOSED"],
-            default: "AVAILABLE"
+            enum: [
+                "AVAILABLE",
+                "FULL",
+                "CLOSED"
+            ],
+            default: "AVAILABLE",
+            index: true
         }
     },
     {
@@ -62,9 +74,10 @@ appointmentSlotSchema.index(
     }
 );
 
-const AppointmentSlot = mongoose.model(
-    "AppointmentSlot",
-    appointmentSlotSchema
-);
+const AppointmentSlot =
+    mongoose.model(
+        "AppointmentSlot",
+        appointmentSlotSchema
+    );
 
 module.exports = AppointmentSlot;

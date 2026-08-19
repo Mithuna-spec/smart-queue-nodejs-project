@@ -4,43 +4,88 @@ const jwt = require("jsonwebtoken");
 
 const register = async (req, res) => {
     try {
-        const { name, email, password, phone } = req.body;
+        const {
+            name,
+            email,
+            password,
+            phone
+        } = req.body;
 
-        // Check whether user already exists
-        const existingUser = await User.findOne({ email });
-
-        if (existingUser) {
+        if (!name || !email || !password || !phone) {
             return res.status(400).json({
-                message: "User already exists"
+                message: "Name, email, password and phone are required"
             });
         }
 
-        // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const normalizedEmail = email.trim().toLowerCase();
+        const normalizedPhone = phone.trim();
 
-        // Create user
-        const user = await User.create({
-            name,
-            email,
-            password: hashedPassword,
-            phone
+        const existingEmail = await User.findOne({
+            email: normalizedEmail
         });
 
-        res.status(201).json({
+        if (existingEmail) {
+            return res.status(409).json({
+                message: "Email is already registered"
+            });
+        }
+
+        const existingPhone = await User.findOne({
+            phone: normalizedPhone
+        });
+
+        if (existingPhone) {
+            return res.status(409).json({
+                message: "Mobile number is already registered"
+            });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const user = await User.create({
+            name: name.trim(),
+            email: normalizedEmail,
+            password: hashedPassword,
+            phone: normalizedPhone,
+
+            // IMPORTANT:
+            // Public registration can ONLY create USER.
+            role: "USER",
+
+            status: "ACTIVE",
+            createdBy: null
+        });
+
+        return res.status(201).json({
             message: "User registered successfully",
             user: {
                 id: user._id,
                 name: user.name,
                 email: user.email,
                 phone: user.phone,
-                role: user.role
+                role: user.role,
+                status: user.status
             }
         });
 
     } catch (error) {
-        console.error(error);
+        console.error("User registration error:", error);
 
-        res.status(500).json({
+        // MongoDB duplicate-key protection
+        if (error.code === 11000) {
+            const duplicateField = Object.keys(
+                error.keyPattern || {}
+            )[0];
+
+            return res.status(409).json({
+                message:
+                    duplicateField === "phone"
+                        ? "Mobile number is already registered"
+                        : "Email is already registered"
+            });
+        }
+
+        return res.status(500).json({
             message: "Server error"
         });
     }
@@ -49,10 +94,36 @@ const register = async (req, res) => {
 
 const login = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const {
+            email,
+            password,
+            role
+        } = req.body;
 
-        // Find user
-        const user = await User.findOne({ email });
+        if (!email || !password || !role) {
+            return res.status(400).json({
+                message: "Email, password and role are required"
+            });
+        }
+
+        const allowedRoles = [
+            "ADMIN",
+            "ORGANIZATION",
+            "STAFF",
+            "USER"
+        ];
+
+        if (!allowedRoles.includes(role)) {
+            return res.status(400).json({
+                message: "Invalid role"
+            });
+        }
+
+        const normalizedEmail = email.trim().toLowerCase();
+
+        const user = await User.findOne({
+            email: normalizedEmail
+        });
 
         if (!user) {
             return res.status(401).json({
@@ -60,7 +131,12 @@ const login = async (req, res) => {
             });
         }
 
-        // Compare password
+        if (user.status !== "ACTIVE") {
+            return res.status(403).json({
+                message: "Account is inactive"
+            });
+        }
+
         const isPasswordCorrect = await bcrypt.compare(
             password,
             user.password
@@ -72,10 +148,16 @@ const login = async (req, res) => {
             });
         }
 
-        // Generate JWT
+        // The selected login role MUST match the actual database role.
+        if (user.role !== role) {
+            return res.status(403).json({
+                message: "Selected role does not match this account"
+            });
+        }
+
         const token = jwt.sign(
             {
-                userId: user._id,
+                userId: user._id.toString(),
                 role: user.role
             },
             process.env.JWT_SECRET,
@@ -84,21 +166,23 @@ const login = async (req, res) => {
             }
         );
 
-        res.status(200).json({
+        return res.status(200).json({
             message: "Login successful",
             token,
             user: {
                 id: user._id,
                 name: user.name,
                 email: user.email,
-                role: user.role
+                phone: user.phone,
+                role: user.role,
+                status: user.status
             }
         });
 
     } catch (error) {
-        console.error(error);
+        console.error("Login error:", error);
 
-        res.status(500).json({
+        return res.status(500).json({
             message: "Server error"
         });
     }
@@ -106,7 +190,7 @@ const login = async (req, res) => {
 const getMe = async (req, res) => {
     try {
         const user = await User.findById(req.user.userId)
-            .select("-password");
+            .select("_id name email phone role status createdAt updatedAt");
 
         if (!user) {
             return res.status(404).json({
@@ -114,14 +198,14 @@ const getMe = async (req, res) => {
             });
         }
 
-        res.status(200).json({
+        return res.status(200).json({
             user
         });
 
     } catch (error) {
-        console.error(error);
+        console.error("Get current user error:", error);
 
-        res.status(500).json({
+        return res.status(500).json({
             message: "Server error"
         });
     }

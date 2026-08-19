@@ -10,7 +10,8 @@ const organizationSchema = new mongoose.Schema(
 
         description: {
             type: String,
-            trim: true
+            trim: true,
+            default: ""
         },
 
         category: {
@@ -34,17 +35,25 @@ const organizationSchema = new mongoose.Schema(
 
         location: {
             latitude: {
-                type: Number
+                type: Number,
+                required: true,
+                min: -90,
+                max: 90
             },
+
             longitude: {
-                type: Number
+                type: Number,
+                required: true,
+                min: -180,
+                max: 180
             }
         },
 
         owner: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
-            required: true
+            required: true,
+            unique: true
         },
 
         status: {
@@ -58,9 +67,11 @@ const organizationSchema = new mongoose.Schema(
     }
 );
 
-const Organization = mongoose.model(
-    "Organization",
-    organizationSchema
-);
+
+const Organization =
+    mongoose.model(
+        "Organization",
+        organizationSchema
+    );
 
 module.exports = Organization;

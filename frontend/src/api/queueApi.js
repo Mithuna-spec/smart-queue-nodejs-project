@@ -5,8 +5,15 @@ export const createQueue = async (queueData) => {
     return response.data;
 };
 
-export const getQueuesByOrganization = async (organizationId) => {
-    const response = await API.get(`/api/queues/organization/${organizationId}`);
+export const getQueuesByOrganization = async (organizationId, page = 1, limit = 10) => {
+    const response = await API.get(`/api/queues/organization/${organizationId}`, {
+        params: { page, limit }
+    });
+    return response.data;
+};
+
+export const getAvailableQueues = async (organizationId) => {
+    const response = await API.get(`/api/queues/available/${organizationId}`);
     return response.data;
 };
 
@@ -16,7 +23,7 @@ export const getQueueById = async (id) => {
 };
 
 export const joinQueue = async (queueId) => {
-    const response = await API.post(`/api/queues/${queueId}/join`);
+    const response = await API.post(`/api/queues/${queueId}/join`, {});
     return response.data;
 };
 
@@ -32,5 +39,10 @@ export const updateQueuePolicy = async (queueId, policyData) => {
 
 export const getQueueAnalytics = async (queueId) => {
     const response = await API.get(`/api/queues/${queueId}/analytics`);
+    return response.data;
+};
+
+export const getAssignedQueue = async () => {
+    const response = await API.get("/api/queues/assigned");
     return response.data;
 };

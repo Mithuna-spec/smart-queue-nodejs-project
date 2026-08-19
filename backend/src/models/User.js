@@ -24,13 +24,28 @@ const userSchema = new mongoose.Schema(
 
         phone: {
             type: String,
+            required: true,
+            unique: true,
             trim: true
         },
 
         role: {
             type: String,
             enum: ["USER", "STAFF", "ORGANIZATION", "ADMIN"],
+            required: true,
             default: "USER"
+        },
+
+        status: {
+            type: String,
+            enum: ["ACTIVE", "INACTIVE"],
+            default: "ACTIVE"
+        },
+
+        createdBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            default: null
         }
     },
     {

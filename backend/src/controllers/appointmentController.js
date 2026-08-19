@@ -269,18 +269,21 @@ if (
 
 const getMyAppointments = async (req, res) => {
     try {
-        const appointments =
-            await Appointment.find({
-                userId: req.user.userId
-            })
-                .populate(
-                    "organizationId",
-                    "name category"
-                )
-                .populate(
-                    "serviceId",
-                    "name averageServiceTime"
-                )
+        const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+        const limit = Math.min(
+            Math.max(parseInt(req.query.limit, 10) || 10, 1),
+            100
+        );
+        const skip = (page - 1) * limit;
+
+        const filter = {
+            userId: req.user.userId
+        };
+
+        const [appointments, total] = await Promise.all([
+            Appointment.find(filter)
+                .populate("organizationId", "name category")
+                .populate("serviceId", "name averageServiceTime")
                 .populate(
                     "appointmentSlotId",
                     "date startTime endTime capacity bookedCount status"
@@ -288,23 +291,27 @@ const getMyAppointments = async (req, res) => {
                 .sort({
                     appointmentDate: 1,
                     appointmentTime: 1
-                });
+                })
+                .skip(skip)
+                .limit(limit),
+            Appointment.countDocuments(filter)
+        ]);
 
         return res.status(200).json({
-            appointments
+            appointments,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit)
+            }
         });
-
     } catch (error) {
-        console.error(
-            "Get appointments error:",
-            error
-        );
-
-        return res.status(500).json({
-            message: "Server error"
-        });
+        console.error("Get appointments error:", error);
+        return res.status(500).json({ message: "Server error" });
     }
 };
+;
 
 
 // ============================================================
@@ -417,76 +424,95 @@ const cancelAppointment = async (req, res) => {
 // GET ORGANIZATION APPOINTMENTS
 // ============================================================
 
-const getOrganizationAppointments =
-    async (req, res) => {
-        try {
-            const {
-                organizationId
-            } = req.params;
+const getOrganizationAppointments = async (req, res) => {
+    try {
+        const { organizationId } = req.params;
 
-            const organization =
-                await Organization.findById(
-                    organizationId
-                );
-
-            if (!organization) {
-                return res.status(404).json({
-                    message:
-                        "Organization not found"
-                });
-            }
-
-            // ADMIN can view any organization
-            // Organization owner can view own organization
-            // STAFF handling is kept for now
-            if (
-                organization.owner.toString() !==
-                    req.user.userId.toString() &&
-                req.user.role !== "ADMIN" &&
-                req.user.role !== "STAFF"
-            ) {
-                return res.status(403).json({
-                    message:
-                        "You are not allowed to view these appointments"
-                });
-            }
-
-            const appointments =
-                await Appointment.find({
-                    organizationId
-                })
-                    .populate(
-                        "userId",
-                        "name email phone"
-                    )
-                    .populate(
-                        "serviceId",
-                        "name averageServiceTime"
-                    )
-                    .populate(
-                        "appointmentSlotId",
-                        "date startTime endTime capacity bookedCount status"
-                    )
-                    .sort({
-                        appointmentDate: 1,
-                        appointmentTime: 1
-                    });
-
-            return res.status(200).json({
-                appointments
-            });
-
-        } catch (error) {
-            console.error(
-                "Get organization appointments error:",
-                error
-            );
-
-            return res.status(500).json({
-                message: "Server error"
+        const mongoose = require("mongoose");
+        if (!mongoose.Types.ObjectId.isValid(organizationId)) {
+            return res.status(400).json({
+                message: "Invalid Organization ID format"
             });
         }
-    };
+
+        const organization = await Organization.findById(organizationId);
+
+        if (!organization) {
+            return res.status(404).json({
+                message: "Organization not found"
+            });
+        }
+
+        if (req.user.role === "ORGANIZATION") {
+            if (organization.owner.toString() !== req.user.userId.toString()) {
+                return res.status(403).json({
+                    message: "You are not authorized for this organization"
+                });
+            }
+        } else if (req.user.role === "STAFF") {
+            const OrganizationStaff = require("../models/OrganizationStaff");
+            const membership = await OrganizationStaff.findOne({
+                organizationId,
+                userId: req.user.userId,
+                status: "ACTIVE"
+            });
+            if (!membership) {
+                return res.status(403).json({
+                    message: "You are not authorized for this organization"
+                });
+            }
+        } else if (req.user.role !== "ADMIN") {
+            return res.status(403).json({
+                message: "You are not allowed to view these appointments"
+            });
+        }
+
+        const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+        const limit = Math.min(
+            Math.max(parseInt(req.query.limit, 10) || 10, 1),
+            100
+        );
+        const skip = (page - 1) * limit;
+
+        const filter = { organizationId };
+
+        const [appointments, total] = await Promise.all([
+            Appointment.find(filter)
+                .populate("userId", "name email phone")
+                .populate("serviceId", "name averageServiceTime")
+                .populate(
+                    "appointmentSlotId",
+                    "date startTime endTime capacity bookedCount status"
+                )
+                .sort({
+                    appointmentDate: 1,
+                    appointmentTime: 1
+                })
+                .skip(skip)
+                .limit(limit),
+            Appointment.countDocuments(filter)
+        ]);
+
+        return res.status(200).json({
+            appointments,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit)
+            }
+        });
+    } catch (error) {
+        console.error(
+            "Get organization appointments error:",
+            error
+        );
+        return res.status(500).json({
+            message: "Server error"
+        });
+    }
+};
+;
 
 
 // ============================================================

@@ -57,6 +57,10 @@ counterSchema.index(
         unique: true
     }
 );
+counterSchema.index({
+    organizationId: 1,
+    assignedStaffId: 1
+});
 
 const Counter = mongoose.model(
     "Counter",

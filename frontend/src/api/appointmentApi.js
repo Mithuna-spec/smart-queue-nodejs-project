@@ -5,8 +5,10 @@ export const createAppointment = async (apptData) => {
     return response.data;
 };
 
-export const getMyAppointments = async () => {
-    const response = await API.get("/api/appointments/my");
+export const getMyAppointments = async (page = 1, limit = 10) => {
+    const response = await API.get("/api/appointments/my", {
+        params: { page, limit }
+    });
     return response.data;
 };
 
@@ -15,8 +17,10 @@ export const cancelAppointment = async (id) => {
     return response.data;
 };
 
-export const getOrganizationAppointments = async (organizationId) => {
-    const response = await API.get(`/api/appointments/organization/${organizationId}`);
+export const getOrganizationAppointments = async (organizationId, page = 1, limit = 10) => {
+    const response = await API.get(`/api/appointments/organization/${organizationId}`, {
+        params: { page, limit }
+    });
     return response.data;
 };
 

@@ -81,6 +81,24 @@ const tokenSchema = new mongoose.Schema(
     }
 );
 
+tokenSchema.index(
+    {
+        queueId: 1,
+        userId: 1
+    },
+    {
+        unique: true,
+        partialFilterExpression: {
+            status: {
+                $in: [
+                    "WAITING",
+                    "CALLED",
+                    "IN_SERVICE"
+                ]
+            }
+        }
+    }
+);
 const Token = mongoose.model("Token", tokenSchema);
 
 module.exports = Token;

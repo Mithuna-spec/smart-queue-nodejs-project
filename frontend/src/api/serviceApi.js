@@ -5,8 +5,15 @@ export const createService = async (serviceData) => {
     return response.data;
 };
 
-export const getServicesByOrganization = async (organizationId) => {
-    const response = await API.get(`/api/services/organization/${organizationId}`);
+export const getServicesByOrganization = async (organizationId, page = 1, limit = 10) => {
+    const response = await API.get(`/api/services/organization/${organizationId}`, {
+        params: { page, limit }
+    });
+    return response.data;
+};
+
+export const getAvailableServices = async (organizationId) => {
+    const response = await API.get(`/api/services/available/${organizationId}`);
     return response.data;
 };
 

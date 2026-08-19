@@ -16,7 +16,8 @@ const serviceSchema = new mongoose.Schema(
         organizationId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Organization",
-            required: true
+            required: true,
+            index: true
         },
 
         averageServiceTime: {
@@ -50,7 +51,10 @@ const serviceSchema = new mongoose.Schema(
         timestamps: true
     }
 );
-
+serviceSchema.index(
+    { organizationId: 1, name: 1 },
+    { unique: true }
+);
 const Service = mongoose.model("Service", serviceSchema);
 
 module.exports = Service;

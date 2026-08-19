@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Input from "../components/Input";
 import Button from "../components/Button";
+import Select from "../components/Select";
 import ErrorMessage from "../components/ErrorMessage";
 
 const Login = () => {
@@ -11,35 +12,34 @@ const Login = () => {
     const location = useLocation();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [role, setRole] = useState("USER");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
-
-    const from = location.state?.from?.pathname || "/";
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError("");
-        if (!email || !password) {
-            setError("Email and password are required.");
+        if (!email || !password || !role) {
+            setError("Email, password and role are required.");
             return;
         }
 
         setLoading(true);
         try {
-            const user = await loginUser(email, password);
+            const user = await loginUser(email, password, role);
             // Redirect based on role
             if (user.role === "ADMIN") {
-                navigate("/admin/dashboard");
+                navigate("/admin");
             } else if (user.role === "ORGANIZATION") {
-                navigate("/organization/dashboard");
+                navigate("/organization");
             } else if (user.role === "STAFF") {
-                navigate("/staff/dashboard");
+                navigate("/staff");
             } else {
-                navigate("/dashboard");
+                navigate("/user");
             }
         } catch (err) {
             console.error("Login component error:", err);
-            setError(err.response?.data?.message || "Invalid email or password.");
+            setError(err.response?.data?.message || "Invalid email, password, or selected role.");
         } finally {
             setLoading(false);
         }
@@ -57,7 +57,7 @@ const Login = () => {
                         Sign In
                     </h2>
                     <p className="text-xs text-[#A8A8A8]">
-                        Enter your credentials to access the Smart Queue dashboard.
+                        Enter your credentials and select your portal role to log in.
                     </p>
                 </div>
 
@@ -81,6 +81,21 @@ const Login = () => {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="••••••••"
+                        disabled={loading}
+                        required
+                    />
+
+                    <Select
+                        label="Select Role"
+                        value={role}
+                        onChange={(e) => setRole(e.target.value)}
+                        placeholder={null}
+                        options={[
+                            { value: "USER", label: "User" },
+                            { value: "STAFF", label: "Staff" },
+                            { value: "ORGANIZATION", label: "Organization" },
+                            { value: "ADMIN", label: "System Admin" }
+                        ]}
                         disabled={loading}
                         required
                     />
